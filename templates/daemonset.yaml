@@ -1,0 +1,31 @@
+{{- if eq .Values.workload.type "daemonset" }}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "generic.fullname" . }}
+  namespace: {{ include "generic.namespace" . }}
+  labels:
+    {{- include "generic.labels" . | nindent 4 }}
+  {{- $annotations := include "generic.resourceAnnotations" (dict "context" . "annotations" dict) }}
+  {{- if $annotations }}
+  annotations:
+    {{- $annotations | nindent 4 }}
+  {{- end }}
+spec:
+  revisionHistoryLimit: {{ .Values.workload.revisionHistoryLimit }}
+  {{- if .Values.workload.minReadySeconds }}
+  minReadySeconds: {{ .Values.workload.minReadySeconds }}
+  {{- end }}
+  {{- with .Values.workload.daemonset.updateStrategy }}
+  updateStrategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "generic.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- include "generic.podMetadata" . | nindent 6 }}
+    spec:
+      {{- include "generic.podSpec" . | nindent 6 }}
+{{- end }}

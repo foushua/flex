@@ -1,0 +1,74 @@
+{{- /* Main PVC - only for non-StatefulSet workloads */ -}}
+{{- if and .Values.persistence.enabled (not .Values.persistence.existingClaim) (ne .Values.workload.type "statefulset") }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "generic.fullname" . }}
+  namespace: {{ include "generic.namespace" . }}
+  labels:
+    {{- include "generic.resourceLabels" (dict "context" . "labels" .Values.persistence.labels) | nindent 4 }}
+  {{- $annotations := include "generic.resourceAnnotations" (dict "context" . "annotations" .Values.persistence.annotations) }}
+  {{- if $annotations }}
+  annotations:
+    {{- $annotations | nindent 4 }}
+  {{- end }}
+spec:
+  accessModes:
+    {{- toYaml .Values.persistence.accessModes | nindent 4 }}
+  {{- if .Values.persistence.storageClass }}
+  storageClassName: {{ .Values.persistence.storageClass | quote }}
+  {{- end }}
+  {{- if .Values.persistence.volumeMode }}
+  volumeMode: {{ .Values.persistence.volumeMode }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.size | quote }}
+  {{- with .Values.persistence.selector }}
+  selector:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.persistence.dataSource }}
+  dataSource:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}
+---
+{{- /* Extra PVCs */ -}}
+{{- range $name, $pvc := .Values.extraPersistence }}
+{{- if and $pvc.enabled (ne $.Values.workload.type "statefulset") }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "generic.fullname" $ }}-{{ $name }}
+  namespace: {{ include "generic.namespace" $ }}
+  labels:
+    {{- include "generic.resourceLabels" (dict "context" $ "labels" $pvc.labels) | nindent 4 }}
+  {{- $annotations := include "generic.resourceAnnotations" (dict "context" $ "annotations" $pvc.annotations) }}
+  {{- if $annotations }}
+  annotations:
+    {{- $annotations | nindent 4 }}
+  {{- end }}
+spec:
+  accessModes:
+    {{- toYaml ($pvc.accessModes | default (list "ReadWriteOnce")) | nindent 4 }}
+  {{- if $pvc.storageClass }}
+  storageClassName: {{ $pvc.storageClass | quote }}
+  {{- end }}
+  {{- if $pvc.volumeMode }}
+  volumeMode: {{ $pvc.volumeMode }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ $pvc.size | quote }}
+  {{- with $pvc.selector }}
+  selector:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with $pvc.dataSource }}
+  dataSource:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+---
+{{- end }}
+{{- end }}

@@ -1,0 +1,27 @@
+apiVersion: v2
+name: generic
+description: A super generic, fully customizable Helm chart for deploying any workload type on Kubernetes
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - generic
+  - deployment
+  - statefulset
+  - daemonset
+  - cronjob
+  - job
+  - kubernetes
+  - universal
+home: https://github.com/your-org/generic-charts
+sources:
+  - https://github.com/your-org/generic-charts
+maintainers:
+  - name: Your Name
+    email: your-email@example.com
+annotations:
+  artifacthub.io/category: integration-delivery
+  artifacthub.io/license: MIT
+  artifacthub.io/signKey: |
+    fingerprint: ""
+    url: ""

@@ -1,0 +1,762 @@
+# =============================================================================
+# GENERIC HELM CHART - DEFAULT VALUES
+# =============================================================================
+# This is a super generic, fully customizable Helm chart that can deploy any
+# workload type on Kubernetes with maximum flexibility.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# GLOBAL SETTINGS
+# -----------------------------------------------------------------------------
+global:
+  # -- Override the name of the chart
+  nameOverride: ""
+  # -- Override the full name of the chart
+  fullnameOverride: ""
+  # -- Default image registry for all containers
+  imageRegistry: ""
+  # -- Global image pull secrets
+  imagePullSecrets: []
+  # -- Default namespace (uses Release.Namespace if empty)
+  namespace: ""
+  # -- Common labels to add to all resources
+  commonLabels: {}
+  # -- Common annotations to add to all resources
+  commonAnnotations: {}
+
+# -----------------------------------------------------------------------------
+# WORKLOAD CONFIGURATION
+# -----------------------------------------------------------------------------
+workload:
+  # -- Type of workload to deploy: deployment | statefulset | daemonset | job | cronjob
+  type: deployment
+  
+  # -- Number of replicas (ignored for daemonset, job, cronjob)
+  replicaCount: 1
+  
+  # -- Revision history limit
+  revisionHistoryLimit: 10
+  
+  # -- Minimum ready seconds
+  minReadySeconds: 0
+  
+  # -- Progress deadline seconds (deployment only)
+  progressDeadlineSeconds: 600
+
+  # Deployment-specific settings
+  deployment:
+    # -- Update strategy type: RollingUpdate | Recreate
+    strategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxSurge: 25%
+        maxUnavailable: 25%
+
+  # StatefulSet-specific settings
+  statefulset:
+    # -- Pod management policy: OrderedReady | Parallel
+    podManagementPolicy: OrderedReady
+    # -- Update strategy: RollingUpdate | OnDelete
+    updateStrategy:
+      type: RollingUpdate
+    # -- Service name for the StatefulSet (auto-generated if empty)
+    serviceName: ""
+    # -- Volume claim templates for StatefulSet
+    volumeClaimTemplates: []
+    # Example:
+    # - metadata:
+    #     name: data
+    #   spec:
+    #     accessModes: ["ReadWriteOnce"]
+    #     storageClassName: standard
+    #     resources:
+    #       requests:
+    #         storage: 10Gi
+
+  # DaemonSet-specific settings
+  daemonset:
+    # -- Update strategy: RollingUpdate | OnDelete
+    updateStrategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxUnavailable: 1
+        maxSurge: 0
+
+  # Job-specific settings
+  job:
+    # -- Number of retries before marking as failed
+    backoffLimit: 6
+    # -- Number of successful completions
+    completions: 1
+    # -- Number of pods to run in parallel
+    parallelism: 1
+    # -- Maximum time in seconds
+    activeDeadlineSeconds: null
+    # -- Time to keep job after completion
+    ttlSecondsAfterFinished: null
+    # -- Restart policy: Never | OnFailure
+    restartPolicy: Never
+
+  # CronJob-specific settings
+  cronjob:
+    # -- Cron schedule expression
+    schedule: "0 * * * *"
+    # -- Concurrency policy: Allow | Forbid | Replace
+    concurrencyPolicy: Forbid
+    # -- Suspend the cron job
+    suspend: false
+    # -- Number of successful job history to keep
+    successfulJobsHistoryLimit: 3
+    # -- Number of failed job history to keep
+    failedJobsHistoryLimit: 1
+    # -- Starting deadline seconds
+    startingDeadlineSeconds: null
+    # -- Restart policy for the job: Never | OnFailure
+    restartPolicy: Never
+    # -- Job backoff limit
+    backoffLimit: 6
+
+# -----------------------------------------------------------------------------
+# CONTAINER (main application container)
+# -----------------------------------------------------------------------------
+# Use 'sidecars' for additional containers, 'initContainers' for init containers
+container:
+  # -- Container name (defaults to chart name)
+  name: ""
+  
+  # Image configuration
+  image:
+    # -- Image registry (overrides global)
+    registry: ""
+    # -- Image repository
+    repository: nginx
+    # -- Image tag (defaults to chart appVersion)
+    tag: ""
+    # -- Image pull policy: Always | IfNotPresent | Never
+    pullPolicy: IfNotPresent
+    # -- Image digest (overrides tag if set)
+    digest: ""
+  
+  # -- Command to run
+  command: []
+  # -- Arguments to the command
+  args: []
+  
+  # -- Container ports
+  ports:
+    - name: http
+      containerPort: 80
+      protocol: TCP
+  
+  # -- Environment variables
+  env: []
+  # Example:
+  # - name: MY_VAR
+  #   value: "my-value"
+  # - name: SECRET_VAR
+  #   valueFrom:
+  #     secretKeyRef:
+  #       name: my-secret
+  #       key: password
+  
+  # -- Environment variables from ConfigMaps/Secrets
+  envFrom: []
+  # Example:
+  # - configMapRef:
+  #     name: my-configmap
+  # - secretRef:
+  #     name: my-secret
+  
+  # Resource requests and limits
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  
+  # Probes
+  livenessProbe:
+    enabled: false
+    httpGet:
+      path: /healthz
+      port: http
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 3
+  
+  readinessProbe:
+    enabled: false
+    httpGet:
+      path: /ready
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 3
+  
+  startupProbe:
+    enabled: false
+    httpGet:
+      path: /healthz
+      port: http
+    initialDelaySeconds: 0
+    periodSeconds: 10
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 30
+  
+  # -- Lifecycle hooks
+  lifecycle: {}
+  # Example:
+  # preStop:
+  #   exec:
+  #     command: ["/bin/sh", "-c", "sleep 10"]
+  # postStart:
+  #   httpGet:
+  #     path: /init
+  #     port: 8080
+  
+  # -- Volume mounts for the container
+  volumeMounts: []
+  # Example:
+  # - name: config
+  #   mountPath: /etc/config
+  #   readOnly: true
+  
+  # -- Container security context
+  securityContext: {}
+  # Example:
+  # runAsNonRoot: true
+  # runAsUser: 1000
+  # readOnlyRootFilesystem: true
+  # allowPrivilegeEscalation: false
+  # capabilities:
+  #   drop: ["ALL"]
+
+
+# -- Additional containers (sidecars)
+sidecars: {}
+# Example:
+# log-shipper:
+#   image:
+#     repository: fluentd
+#     tag: latest
+#   volumeMounts:
+#     - name: logs
+#       mountPath: /var/log
+
+# -- Init containers
+initContainers: {}
+# Example:
+# init-db:
+#   image:
+#     repository: busybox
+#     tag: latest
+#   command: ["sh", "-c", "echo init"]
+#   resources:
+#     requests:
+#       cpu: 50m
+#       memory: 64Mi
+
+# -----------------------------------------------------------------------------
+# SERVICE
+# -----------------------------------------------------------------------------
+service:
+  # -- Enable service creation
+  enabled: true
+  # -- Service type: ClusterIP | NodePort | LoadBalancer | ExternalName
+  type: ClusterIP
+  # -- Cluster IP (set to "None" for headless service)
+  clusterIP: ""
+  # -- Load balancer IP (if type is LoadBalancer)
+  loadBalancerIP: ""
+  # -- Load balancer source ranges
+  loadBalancerSourceRanges: []
+  # -- External traffic policy: Cluster | Local
+  externalTrafficPolicy: ""
+  # -- Health check node port (for LoadBalancer with externalTrafficPolicy: Local)
+  healthCheckNodePort: 0
+  # -- Session affinity: None | ClientIP
+  sessionAffinity: None
+  # -- Session affinity config
+  sessionAffinityConfig: {}
+  # -- Service annotations
+  annotations: {}
+  # -- Service labels
+  labels: {}
+  # -- Service ports
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
+      # nodePort: 30080  # Only for NodePort/LoadBalancer
+  # -- External IPs
+  externalIPs: []
+  # -- Publish not ready addresses (for StatefulSet)
+  publishNotReadyAddresses: false
+
+# -- Additional services (e.g., headless for StatefulSet)
+extraServices: {}
+# Example:
+# headless:
+#   type: ClusterIP
+#   clusterIP: None
+#   ports:
+#     - name: http
+#       port: 80
+#       targetPort: http
+
+# -----------------------------------------------------------------------------
+# INGRESS
+# -----------------------------------------------------------------------------
+ingress:
+  # -- Enable ingress
+  enabled: false
+  # -- Ingress class name
+  className: ""
+  # -- Ingress annotations
+  annotations: {}
+  # Example:
+  # kubernetes.io/ingress.class: nginx
+  # nginx.ingress.kubernetes.io/rewrite-target: /
+  # cert-manager.io/cluster-issuer: letsencrypt-prod
+  
+  # -- Ingress labels
+  labels: {}
+  
+  # -- Ingress hosts
+  hosts:
+    - host: chart-example.local
+      paths:
+        - path: /
+          pathType: Prefix
+          # Optional: specify a different service/port
+          # service:
+          #   name: my-service
+          #   port: 80
+  
+  # -- TLS configuration
+  tls: []
+  # Example:
+  # - secretName: chart-example-tls
+  #   hosts:
+  #     - chart-example.local
+
+# -- Additional ingress resources
+extraIngresses: {}
+
+# -----------------------------------------------------------------------------
+# CONFIGMAPS
+# -----------------------------------------------------------------------------
+configMaps: {}
+# Example:
+# app-config:
+#   # -- Enable ConfigMap creation
+#   enabled: true
+#   # -- ConfigMap annotations
+#   annotations: {}
+#   # -- ConfigMap labels
+#   labels: {}
+#   # -- Immutable ConfigMap
+#   immutable: false
+#   # -- Data key-value pairs
+#   data:
+#     config.yaml: |
+#       key: value
+#     settings.json: |
+#       {"setting": "value"}
+
+# -----------------------------------------------------------------------------
+# SECRETS
+# -----------------------------------------------------------------------------
+secrets: {}
+# Example:
+# app-secrets:
+#   # -- Enable Secret creation
+#   enabled: true
+#   # -- Secret type: Opaque | kubernetes.io/tls | kubernetes.io/dockerconfigjson
+#   type: Opaque
+#   # -- Secret annotations
+#   annotations: {}
+#   # -- Secret labels
+#   labels: {}
+#   # -- Data (will be base64 encoded)
+#   data: {}
+#   # -- String data (will not be base64 encoded by Helm, but by K8s)
+#   stringData:
+#     username: admin
+#     password: secret
+
+# -----------------------------------------------------------------------------
+# EXTERNAL SECRETS (External Secrets Operator)
+# -----------------------------------------------------------------------------
+externalSecrets: {}
+# Example:
+# aws-secrets:
+#   enabled: true
+#   # -- Refresh interval
+#   refreshInterval: 1h
+#   # -- Secret store reference
+#   secretStoreRef:
+#     name: aws-secrets-manager
+#     kind: ClusterSecretStore
+#   # -- Target secret configuration
+#   target:
+#     name: my-app-secrets
+#     creationPolicy: Owner
+#   # -- Data mappings
+#   data:
+#     - secretKey: db-password
+#       remoteRef:
+#         key: prod/myapp/database
+#         property: password
+
+# -----------------------------------------------------------------------------
+# PERSISTENCE / VOLUMES
+# -----------------------------------------------------------------------------
+persistence:
+  # Default PVC
+  enabled: false
+  # -- Storage class (empty = default storage class)
+  storageClass: ""
+  # -- Access modes
+  accessModes:
+    - ReadWriteOnce
+  # -- Size of the volume
+  size: 10Gi
+  # -- Annotations for the PVC
+  annotations: {}
+  # -- Labels for the PVC
+  labels: {}
+  # -- Volume mode: Filesystem | Block
+  volumeMode: Filesystem
+  # -- Selector for existing PV
+  selector: {}
+  # -- Data source (e.g., for snapshots)
+  dataSource: {}
+  # -- Existing claim to use (if set, no PVC created)
+  existingClaim: ""
+
+# -- Additional PVCs
+extraPersistence: {}
+# Example:
+# logs:
+#   enabled: true
+#   storageClass: standard
+#   accessModes: ["ReadWriteOnce"]
+#   size: 5Gi
+
+# -- Additional volumes
+volumes: []
+# Example:
+# - name: config
+#   configMap:
+#     name: my-config
+# - name: secret
+#   secret:
+#     secretName: my-secret
+# - name: empty
+#   emptyDir: {}
+# - name: host
+#   hostPath:
+#     path: /var/log
+
+# -----------------------------------------------------------------------------
+# SERVICE ACCOUNT & RBAC
+# -----------------------------------------------------------------------------
+serviceAccount:
+  # -- Create service account
+  create: true
+  # -- Service account name (auto-generated if empty)
+  name: ""
+  # -- Service account annotations
+  annotations: {}
+  # Example for AWS IRSA:
+  # eks.amazonaws.com/role-arn: arn:aws:iam::123456789:role/my-role
+  # -- Service account labels
+  labels: {}
+  # -- Automount API credentials
+  automountServiceAccountToken: true
+  # -- Image pull secrets to add to the service account
+  imagePullSecrets: []
+
+rbac:
+  # -- Create RBAC resources
+  create: false
+  
+  # -- Rules for Role/ClusterRole
+  rules: []
+  # Example:
+  # - apiGroups: [""]
+  #   resources: ["pods", "services"]
+  #   verbs: ["get", "list", "watch"]
+  # - apiGroups: ["apps"]
+  #   resources: ["deployments"]
+  #   verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  
+  # -- Create ClusterRole instead of Role
+  clusterWide: false
+  
+  # -- Existing Role/ClusterRole to bind to (if set, rules are ignored)
+  existingRole: ""
+
+# -----------------------------------------------------------------------------
+# POD CONFIGURATION
+# -----------------------------------------------------------------------------
+# -- Pod annotations
+podAnnotations: {}
+
+# -- Pod labels
+podLabels: {}
+
+# -- Pod security context
+podSecurityContext: {}
+# Example:
+# runAsNonRoot: true
+# runAsUser: 1000
+# runAsGroup: 1000
+# fsGroup: 1000
+# seccompProfile:
+#   type: RuntimeDefault
+
+# -- Image pull secrets
+imagePullSecrets: []
+# Example:
+# - name: my-registry-secret
+
+# -- Node selector
+nodeSelector: {}
+# Example:
+# kubernetes.io/os: linux
+# node-type: compute
+
+# -- Tolerations
+tolerations: []
+# Example:
+# - key: "node-role.kubernetes.io/master"
+#   operator: "Exists"
+#   effect: "NoSchedule"
+
+# -- Affinity rules
+affinity: {}
+# Example:
+# nodeAffinity:
+#   requiredDuringSchedulingIgnoredDuringExecution:
+#     nodeSelectorTerms:
+#       - matchExpressions:
+#           - key: kubernetes.io/os
+#             operator: In
+#             values:
+#               - linux
+# podAntiAffinity:
+#   preferredDuringSchedulingIgnoredDuringExecution:
+#     - weight: 100
+#       podAffinityTerm:
+#         labelSelector:
+#           matchLabels:
+#             app.kubernetes.io/name: my-app
+#         topologyKey: kubernetes.io/hostname
+
+# -- Topology spread constraints
+topologySpreadConstraints: []
+# Example:
+# - maxSkew: 1
+#   topologyKey: topology.kubernetes.io/zone
+#   whenUnsatisfiable: DoNotSchedule
+#   labelSelector:
+#     matchLabels:
+#       app.kubernetes.io/name: my-app
+
+# -- Priority class name
+priorityClassName: ""
+
+# -- Runtime class name
+runtimeClassName: ""
+
+# -- Scheduler name
+schedulerName: ""
+
+# -- Termination grace period
+terminationGracePeriodSeconds: 30
+
+# -- DNS policy
+dnsPolicy: ""
+
+# -- DNS config
+dnsConfig: {}
+
+# -- Host network
+hostNetwork: false
+
+# -- Host PID
+hostPID: false
+
+# -- Host IPC
+hostIPC: false
+
+# -- Share process namespace
+shareProcessNamespace: false
+
+# -----------------------------------------------------------------------------
+# AUTOSCALING (HPA)
+# -----------------------------------------------------------------------------
+autoscaling:
+  # -- Enable HPA
+  enabled: false
+  # -- Minimum replicas
+  minReplicas: 1
+  # -- Maximum replicas
+  maxReplicas: 10
+  # -- Target CPU utilization percentage
+  targetCPUUtilizationPercentage: 80
+  # -- Target memory utilization percentage
+  targetMemoryUtilizationPercentage: null
+  
+  # -- Custom metrics
+  customMetrics: []
+  # Example:
+  # - type: Pods
+  #   pods:
+  #     metric:
+  #       name: requests_per_second
+  #     target:
+  #       type: AverageValue
+  #       averageValue: 1000
+  
+  # -- Scaling behavior
+  behavior: {}
+  # Example:
+  # scaleDown:
+  #   stabilizationWindowSeconds: 300
+  #   policies:
+  #     - type: Percent
+  #       value: 100
+  #       periodSeconds: 15
+  # scaleUp:
+  #   stabilizationWindowSeconds: 0
+  #   policies:
+  #     - type: Percent
+  #       value: 100
+  #       periodSeconds: 15
+  #     - type: Pods
+  #       value: 4
+  #       periodSeconds: 15
+  #   selectPolicy: Max
+
+# -----------------------------------------------------------------------------
+# POD DISRUPTION BUDGET
+# -----------------------------------------------------------------------------
+pdb:
+  # -- Enable PDB
+  enabled: false
+  # -- Minimum available pods (absolute number or percentage)
+  minAvailable: ""
+  # -- Maximum unavailable pods (absolute number or percentage)
+  maxUnavailable: ""
+  # Example: use either minAvailable OR maxUnavailable, not both
+  # minAvailable: 1
+  # maxUnavailable: 25%
+
+# -----------------------------------------------------------------------------
+# NETWORK POLICY
+# -----------------------------------------------------------------------------
+networkPolicy:
+  # -- Enable NetworkPolicy
+  enabled: false
+  
+  # -- Policy types to enforce
+  policyTypes:
+    - Ingress
+    - Egress
+  
+  # -- Ingress rules
+  ingress: []
+  # Example:
+  # - from:
+  #     - podSelector:
+  #         matchLabels:
+  #           app: frontend
+  #     - namespaceSelector:
+  #         matchLabels:
+  #           name: monitoring
+  #   ports:
+  #     - protocol: TCP
+  #       port: 80
+  
+  # -- Egress rules
+  egress: []
+  # Example:
+  # - to:
+  #     - ipBlock:
+  #         cidr: 10.0.0.0/8
+  #   ports:
+  #     - protocol: TCP
+  #       port: 443
+
+# -----------------------------------------------------------------------------
+# MONITORING (Prometheus)
+# -----------------------------------------------------------------------------
+serviceMonitor:
+  # -- Enable ServiceMonitor
+  enabled: false
+  # -- Namespace for the ServiceMonitor (defaults to release namespace)
+  namespace: ""
+  # -- Labels to add to the ServiceMonitor
+  labels: {}
+  # -- Annotations to add to the ServiceMonitor
+  annotations: {}
+  # -- Interval at which metrics should be scraped
+  interval: 30s
+  # -- Timeout after which the scrape is ended
+  scrapeTimeout: 10s
+  # -- Metric relabeling configs
+  metricRelabelings: []
+  # -- Relabeling configs
+  relabelings: []
+  # -- Endpoints configuration
+  endpoints:
+    - port: http
+      path: /metrics
+      scheme: http
+
+prometheusRule:
+  # -- Enable PrometheusRule
+  enabled: false
+  # -- Namespace for the PrometheusRule (defaults to release namespace)
+  namespace: ""
+  # -- Labels to add to the PrometheusRule
+  labels: {}
+  # -- Annotations to add to the PrometheusRule
+  annotations: {}
+  # -- Alert/recording rule groups
+  groups: []
+  # Example:
+  # - name: my-app-alerts
+  #   rules:
+  #     - alert: HighErrorRate
+  #       expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.1
+  #       for: 5m
+  #       labels:
+  #         severity: critical
+  #       annotations:
+  #         summary: High error rate detected
+  #         description: Error rate is {{ $value }} per second
+
+# -----------------------------------------------------------------------------
+# EXTRA RESOURCES
+# -----------------------------------------------------------------------------
+# -- Extra Kubernetes resources to create
+extraResources: []
+# Example: Create any arbitrary Kubernetes resource
+# - apiVersion: v1
+#   kind: ConfigMap
+#   metadata:
+#     name: extra-config
+#   data:
+#     key: value

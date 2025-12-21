@@ -1,0 +1,21 @@
+{{- if .Values.prometheusRule.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "generic.fullname" . }}
+  {{- if .Values.prometheusRule.namespace }}
+  namespace: {{ .Values.prometheusRule.namespace }}
+  {{- else }}
+  namespace: {{ include "generic.namespace" . }}
+  {{- end }}
+  labels:
+    {{- include "generic.resourceLabels" (dict "context" . "labels" .Values.prometheusRule.labels) | nindent 4 }}
+  {{- $annotations := include "generic.resourceAnnotations" (dict "context" . "annotations" .Values.prometheusRule.annotations) }}
+  {{- if $annotations }}
+  annotations:
+    {{- $annotations | nindent 4 }}
+  {{- end }}
+spec:
+  groups:
+    {{- toYaml .Values.prometheusRule.groups | nindent 4 }}
+{{- end }}

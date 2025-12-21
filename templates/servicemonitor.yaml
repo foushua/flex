@@ -1,0 +1,63 @@
+{{- if .Values.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "generic.fullname" . }}
+  {{- if .Values.serviceMonitor.namespace }}
+  namespace: {{ .Values.serviceMonitor.namespace }}
+  {{- else }}
+  namespace: {{ include "generic.namespace" . }}
+  {{- end }}
+  labels:
+    {{- include "generic.resourceLabels" (dict "context" . "labels" .Values.serviceMonitor.labels) | nindent 4 }}
+  {{- $annotations := include "generic.resourceAnnotations" (dict "context" . "annotations" .Values.serviceMonitor.annotations) }}
+  {{- if $annotations }}
+  annotations:
+    {{- $annotations | nindent 4 }}
+  {{- end }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "generic.selectorLabels" . | nindent 6 }}
+  namespaceSelector:
+    matchNames:
+      - {{ include "generic.namespace" . }}
+  endpoints:
+    {{- range .Values.serviceMonitor.endpoints }}
+    - port: {{ .port }}
+      {{- if .path }}
+      path: {{ .path }}
+      {{- end }}
+      {{- if .scheme }}
+      scheme: {{ .scheme }}
+      {{- end }}
+      {{- if $.Values.serviceMonitor.interval }}
+      interval: {{ $.Values.serviceMonitor.interval }}
+      {{- end }}
+      {{- if $.Values.serviceMonitor.scrapeTimeout }}
+      scrapeTimeout: {{ $.Values.serviceMonitor.scrapeTimeout }}
+      {{- end }}
+      {{- if .honorLabels }}
+      honorLabels: {{ .honorLabels }}
+      {{- end }}
+      {{- with $.Values.serviceMonitor.relabelings }}
+      relabelings:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $.Values.serviceMonitor.metricRelabelings }}
+      metricRelabelings:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .tlsConfig }}
+      tlsConfig:
+        {{- toYaml .tlsConfig | nindent 8 }}
+      {{- end }}
+      {{- if .bearerTokenFile }}
+      bearerTokenFile: {{ .bearerTokenFile }}
+      {{- end }}
+      {{- if .bearerTokenSecret }}
+      bearerTokenSecret:
+        {{- toYaml .bearerTokenSecret | nindent 8 }}
+      {{- end }}
+    {{- end }}
+{{- end }}

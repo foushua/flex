@@ -1,0 +1,105 @@
+# Helm unit tests - run with: helm unittest .
+suite: Service Tests
+templates:
+  - templates/service.yaml
+tests:
+  # ============================================
+  # Service creation
+  # ============================================
+  - it: should create a service when enabled
+    set:
+      service:
+        enabled: true
+    asserts:
+      - isKind:
+          of: Service
+      - equal:
+          path: spec.type
+          value: ClusterIP
+
+  - it: should not create a service when disabled
+    set:
+      service:
+        enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  # ============================================
+  # Service types
+  # ============================================
+  - it: should create LoadBalancer service
+    set:
+      service:
+        enabled: true
+        type: LoadBalancer
+    asserts:
+      - equal:
+          path: spec.type
+          value: LoadBalancer
+
+  - it: should create NodePort service
+    set:
+      service:
+        enabled: true
+        type: NodePort
+    asserts:
+      - equal:
+          path: spec.type
+          value: NodePort
+
+  # ============================================
+  # Ports configuration
+  # ============================================
+  - it: should configure service ports
+    set:
+      service:
+        enabled: true
+        ports:
+          - name: http
+            port: 80
+            targetPort: 8080
+          - name: https
+            port: 443
+            targetPort: 8443
+    asserts:
+      - equal:
+          path: spec.ports[0].name
+          value: http
+      - equal:
+          path: spec.ports[0].port
+          value: 80
+      - equal:
+          path: spec.ports[0].targetPort
+          value: 8080
+      - equal:
+          path: spec.ports[1].name
+          value: https
+
+  # ============================================
+  # Annotations
+  # ============================================
+  - it: should add service annotations
+    set:
+      service:
+        enabled: true
+        annotations:
+          external-dns.alpha.kubernetes.io/hostname: myapp.example.com
+          service.beta.kubernetes.io/aws-load-balancer-type: nlb
+    asserts:
+      - equal:
+          path: metadata.annotations["external-dns.alpha.kubernetes.io/hostname"]
+          value: myapp.example.com
+
+  # ============================================
+  # Selectors
+  # ============================================
+  - it: should have correct selectors
+    set:
+      service:
+        enabled: true
+    asserts:
+      - exists:
+          path: spec.selector["app.kubernetes.io/name"]
+      - exists:
+          path: spec.selector["app.kubernetes.io/instance"]

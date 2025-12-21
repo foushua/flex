@@ -1,0 +1,36 @@
+{{- if eq .Values.workload.type "job" }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "generic.fullname" . }}
+  namespace: {{ include "generic.namespace" . }}
+  labels:
+    {{- include "generic.labels" . | nindent 4 }}
+  {{- $annotations := include "generic.resourceAnnotations" (dict "context" . "annotations" dict) }}
+  {{- if $annotations }}
+  annotations:
+    {{- $annotations | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.workload.job.backoffLimit }}
+  backoffLimit: {{ .Values.workload.job.backoffLimit }}
+  {{- end }}
+  {{- if .Values.workload.job.completions }}
+  completions: {{ .Values.workload.job.completions }}
+  {{- end }}
+  {{- if .Values.workload.job.parallelism }}
+  parallelism: {{ .Values.workload.job.parallelism }}
+  {{- end }}
+  {{- if .Values.workload.job.activeDeadlineSeconds }}
+  activeDeadlineSeconds: {{ .Values.workload.job.activeDeadlineSeconds }}
+  {{- end }}
+  {{- if .Values.workload.job.ttlSecondsAfterFinished }}
+  ttlSecondsAfterFinished: {{ .Values.workload.job.ttlSecondsAfterFinished }}
+  {{- end }}
+  template:
+    metadata:
+      {{- include "generic.podMetadata" . | nindent 6 }}
+    spec:
+      restartPolicy: {{ .Values.workload.job.restartPolicy }}
+      {{- include "generic.podSpec" . | nindent 6 }}
+{{- end }}

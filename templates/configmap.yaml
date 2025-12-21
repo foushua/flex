@@ -1,0 +1,31 @@
+{{- range $name, $cm := .Values.configMaps }}
+{{- if $cm.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "generic.fullname" $ }}-{{ $name }}
+  namespace: {{ include "generic.namespace" $ }}
+  labels:
+    {{- include "generic.resourceLabels" (dict "context" $ "labels" $cm.labels) | nindent 4 }}
+  {{- $annotations := include "generic.resourceAnnotations" (dict "context" $ "annotations" $cm.annotations) }}
+  {{- if $annotations }}
+  annotations:
+    {{- $annotations | nindent 4 }}
+  {{- end }}
+{{- if $cm.immutable }}
+immutable: true
+{{- end }}
+{{- with $cm.data }}
+data:
+  {{- range $key, $value := . }}
+  {{ $key }}: |
+    {{- $value | nindent 4 }}
+  {{- end }}
+{{- end }}
+{{- with $cm.binaryData }}
+binaryData:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+---
+{{- end }}
+{{- end }}

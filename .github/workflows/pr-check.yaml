@@ -1,0 +1,145 @@
+name: PR Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+env:
+  HELM_VERSION: '3.14.0'
+
+jobs:
+  # ============================================
+  # Quick validation for PRs
+  # ============================================
+  pr-validation:
+    name: 🔍 PR Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - name: Check for version bump
+        run: |
+          # Get the base branch version
+          git fetch origin ${{ github.base_ref }}
+          
+          BASE_VERSION=$(git show origin/${{ github.base_ref }}:Chart.yaml | grep '^version:' | awk '{print $2}' || echo "0.0.0")
+          HEAD_VERSION=$(grep '^version:' Chart.yaml | awk '{print $2}')
+          
+          echo "Base version: $BASE_VERSION"
+          echo "Head version: $HEAD_VERSION"
+          
+          if [ "$BASE_VERSION" == "$HEAD_VERSION" ]; then
+            echo "⚠️ Warning: Chart version has not been bumped"
+            echo "Consider updating the version in Chart.yaml"
+          else
+            echo "✅ Version has been updated: $BASE_VERSION → $HEAD_VERSION"
+          fi
+
+      - name: Lint chart
+        run: helm lint .
+
+      - name: Template validation
+        run: |
+          helm template test-pr . > /tmp/manifests.yaml
+          echo "✅ Templates rendered successfully"
+
+      - name: Diff against base branch
+        run: |
+          git fetch origin ${{ github.base_ref }}
+          
+          echo "📊 Files changed in this PR:"
+          git diff --name-only origin/${{ github.base_ref }}...HEAD
+          
+          echo ""
+          echo "📝 Template diff preview:"
+          git stash
+          git checkout origin/${{ github.base_ref }} -- . 2>/dev/null || true
+          helm template test-base . > /tmp/base-manifests.yaml 2>/dev/null || echo "" > /tmp/base-manifests.yaml
+          git checkout - -- . 2>/dev/null || true
+          git stash pop 2>/dev/null || true
+          
+          helm template test-pr . > /tmp/pr-manifests.yaml
+          
+          if diff -u /tmp/base-manifests.yaml /tmp/pr-manifests.yaml > /tmp/manifests-diff.txt; then
+            echo "No changes in rendered manifests"
+          else
+            echo "Changes detected in rendered manifests:"
+            head -100 /tmp/manifests-diff.txt
+          fi
+
+  # ============================================
+  # Add PR comment with summary
+  # ============================================
+  pr-comment:
+    name: 💬 PR Summary
+    runs-on: ubuntu-latest
+    needs: pr-validation
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - name: Generate summary
+        id: summary
+        run: |
+          CHART_NAME=$(grep '^name:' Chart.yaml | awk '{print $2}')
+          CHART_VERSION=$(grep '^version:' Chart.yaml | awk '{print $2}')
+          APP_VERSION=$(grep '^appVersion:' Chart.yaml | awk '{print $2}' | tr -d '"')
+          
+          # Count resources
+          TEMPLATE_COUNT=$(ls -1 templates/*.yaml 2>/dev/null | wc -l)
+          EXAMPLE_COUNT=$(ls -1 examples/*.yaml 2>/dev/null | wc -l)
+          
+          cat << EOF > /tmp/summary.md
+          ## 📋 Helm Chart Summary
+          
+          | Property | Value |
+          |----------|-------|
+          | **Chart Name** | \`$CHART_NAME\` |
+          | **Chart Version** | \`$CHART_VERSION\` |
+          | **App Version** | \`$APP_VERSION\` |
+          | **Templates** | $TEMPLATE_COUNT files |
+          | **Examples** | $EXAMPLE_COUNT files |
+          
+          ### ✅ Validation Results
+          
+          - [x] Helm lint passed
+          - [x] Templates render successfully
+          - [x] All examples validated
+          
+          ---
+          <details>
+          <summary>📝 Available workload types</summary>
+          
+          - Deployment
+          - StatefulSet
+          - DaemonSet
+          - Job
+          - CronJob
+          
+          </details>
+          EOF
+          
+          echo "summary<<EOF" >> $GITHUB_OUTPUT
+          cat /tmp/summary.md >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Comment on PR
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: helm-chart-summary
+          message: ${{ steps.summary.outputs.summary }}

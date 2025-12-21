@@ -1,0 +1,42 @@
+# Simple Deployment Example
+# This example shows a basic web application deployment
+
+global:
+  nameOverride: "my-app"
+
+workload:
+  type: deployment
+  replicaCount: 2
+
+container:
+  image:
+    repository: nginx
+    tag: "1.25"
+  ports:
+    - name: http
+      containerPort: 80
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  livenessProbe:
+    enabled: true
+    httpGet:
+      path: /
+      port: http
+  readinessProbe:
+    enabled: true
+    httpGet:
+      path: /
+      port: http
+
+service:
+  enabled: true
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

@@ -1,0 +1,37 @@
+{{- if eq .Values.workload.type "deployment" }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "generic.fullname" . }}
+  namespace: {{ include "generic.namespace" . }}
+  labels:
+    {{- include "generic.labels" . | nindent 4 }}
+  {{- $annotations := include "generic.resourceAnnotations" (dict "context" . "annotations" dict) }}
+  {{- if $annotations }}
+  annotations:
+    {{- $annotations | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.workload.replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: {{ .Values.workload.revisionHistoryLimit }}
+  {{- if .Values.workload.minReadySeconds }}
+  minReadySeconds: {{ .Values.workload.minReadySeconds }}
+  {{- end }}
+  {{- if .Values.workload.progressDeadlineSeconds }}
+  progressDeadlineSeconds: {{ .Values.workload.progressDeadlineSeconds }}
+  {{- end }}
+  {{- with .Values.workload.deployment.strategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "generic.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- include "generic.podMetadata" . | nindent 6 }}
+    spec:
+      {{- include "generic.podSpec" . | nindent 6 }}
+{{- end }}

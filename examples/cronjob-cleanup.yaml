@@ -1,0 +1,77 @@
+# CronJob Cleanup Example
+# This example shows a scheduled cleanup job
+
+global:
+  nameOverride: "db-cleanup"
+
+workload:
+  type: cronjob
+  cronjob:
+    schedule: "0 2 * * *"  # Daily at 2 AM
+    concurrencyPolicy: Forbid
+    successfulJobsHistoryLimit: 3
+    failedJobsHistoryLimit: 1
+    startingDeadlineSeconds: 600
+    restartPolicy: OnFailure
+    backoffLimit: 3
+
+container:
+  image:
+    repository: postgres
+    tag: "15-alpine"
+  command:
+    - /bin/sh
+    - -c
+  args:
+    - |
+      psql -h $DB_HOST -U $DB_USER -d $DB_NAME -c "
+        DELETE FROM audit_logs WHERE created_at < NOW() - INTERVAL '90 days';
+        DELETE FROM sessions WHERE expires_at < NOW();
+        VACUUM ANALYZE;
+      "
+  env:
+    - name: DB_HOST
+      value: postgres-headless
+    - name: DB_NAME
+      value: mydb
+    - name: DB_USER
+      valueFrom:
+        secretKeyRef:
+          name: db-cleanup-db-creds
+          key: username
+    - name: PGPASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: db-cleanup-db-creds
+          key: password
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 999
+    readOnlyRootFilesystem: true
+    allowPrivilegeEscalation: false
+
+service:
+  enabled: false
+
+secrets:
+  db-creds:
+    enabled: true
+    type: Opaque
+    stringData:
+      username: cleanup_user
+      password: cleanup_password
+
+serviceAccount:
+  create: true
+
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault

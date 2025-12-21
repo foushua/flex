@@ -1,0 +1,210 @@
+# Helm unit tests - run with: helm unittest .
+suite: Deployment Tests
+templates:
+  - templates/deployment.yaml
+tests:
+  # ============================================
+  # Basic deployment creation
+  # ============================================
+  - it: should create a deployment by default
+    set:
+      workload:
+        type: deployment
+    asserts:
+      - isKind:
+          of: Deployment
+      - equal:
+          path: spec.replicas
+          value: 1
+
+  - it: should set correct replica count
+    set:
+      workload:
+        type: deployment
+        replicaCount: 3
+    asserts:
+      - equal:
+          path: spec.replicas
+          value: 3
+
+  # ============================================
+  # Container configuration
+  # ============================================
+  - it: should use correct image
+    set:
+      workload:
+        type: deployment
+      container:
+        image:
+          repository: myapp/api
+          tag: "1.0.0"
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: myapp/api:1.0.0
+
+  - it: should set container ports
+    set:
+      workload:
+        type: deployment
+      container:
+        ports:
+          - name: http
+            containerPort: 8080
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].ports[0].name
+          value: http
+      - equal:
+          path: spec.template.spec.containers[0].ports[0].containerPort
+          value: 8080
+
+  # ============================================
+  # Labels and annotations
+  # ============================================
+  - it: should include common labels
+    set:
+      workload:
+        type: deployment
+    asserts:
+      - exists:
+          path: metadata.labels["app.kubernetes.io/name"]
+      - exists:
+          path: metadata.labels["app.kubernetes.io/instance"]
+
+  - it: should add pod annotations
+    set:
+      workload:
+        type: deployment
+      podAnnotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+    asserts:
+      - equal:
+          path: spec.template.metadata.annotations["prometheus.io/scrape"]
+          value: "true"
+
+  # ============================================
+  # Strategy
+  # ============================================
+  - it: should use RollingUpdate strategy by default
+    set:
+      workload:
+        type: deployment
+    asserts:
+      - equal:
+          path: spec.strategy.type
+          value: RollingUpdate
+
+  - it: should allow Recreate strategy
+    set:
+      workload:
+        type: deployment
+        deployment:
+          strategy:
+            type: Recreate
+    asserts:
+      - equal:
+          path: spec.strategy.type
+          value: Recreate
+
+  # ============================================
+  # Resources
+  # ============================================
+  - it: should set resource limits
+    set:
+      workload:
+        type: deployment
+      container:
+        resources:
+          limits:
+            cpu: "1"
+            memory: "1Gi"
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].resources.limits.cpu
+          value: "1"
+      - equal:
+          path: spec.template.spec.containers[0].resources.limits.memory
+          value: "1Gi"
+
+  # ============================================
+  # Probes
+  # ============================================
+  - it: should configure liveness probe when enabled
+    set:
+      workload:
+        type: deployment
+      container:
+        livenessProbe:
+          enabled: true
+          httpGet:
+            path: /healthz
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 10
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.httpGet.path
+          value: /healthz
+
+  # ============================================
+  # Environment variables
+  # ============================================
+  - it: should set environment variables
+    set:
+      workload:
+        type: deployment
+      container:
+        env:
+          - name: APP_ENV
+            value: production
+          - name: DB_HOST
+            valueFrom:
+              secretKeyRef:
+                name: db-secret
+                key: host
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].env[0].name
+          value: APP_ENV
+      - equal:
+          path: spec.template.spec.containers[0].env[0].value
+          value: production
+
+  # ============================================
+  # Security context
+  # ============================================
+  - it: should set pod security context
+    set:
+      workload:
+        type: deployment
+      podSecurityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+    asserts:
+      - equal:
+          path: spec.template.spec.securityContext.runAsNonRoot
+          value: true
+      - equal:
+          path: spec.template.spec.securityContext.runAsUser
+          value: 1000
+
+  # ============================================
+  # Node selection
+  # ============================================
+  - it: should set nodeSelector
+    set:
+      workload:
+        type: deployment
+      nodeSelector:
+        kubernetes.io/os: linux
+        node-type: compute
+    asserts:
+      - equal:
+          path: spec.template.spec.nodeSelector["kubernetes.io/os"]
+          value: linux

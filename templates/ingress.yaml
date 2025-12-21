@@ -1,0 +1,101 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "generic.fullname" . }}
+  namespace: {{ include "generic.namespace" . }}
+  labels:
+    {{- include "generic.resourceLabels" (dict "context" . "labels" .Values.ingress.labels) | nindent 4 }}
+  {{- $annotations := include "generic.resourceAnnotations" (dict "context" . "annotations" .Values.ingress.annotations) }}
+  {{- if $annotations }}
+  annotations:
+    {{- $annotations | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if .Values.ingress.className }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
+  {{- if .Values.ingress.tls }}
+  tls:
+    {{- range .Values.ingress.tls }}
+    - hosts:
+        {{- range .hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      secretName: {{ .secretName }}
+    {{- end }}
+  {{- end }}
+  rules:
+    {{- range .Values.ingress.hosts }}
+    - host: {{ .host | quote }}
+      http:
+        paths:
+          {{- range .paths }}
+          - path: {{ .path }}
+            pathType: {{ .pathType | default "Prefix" }}
+            backend:
+              service:
+                {{- if .service }}
+                name: {{ .service.name }}
+                port:
+                  number: {{ .service.port }}
+                {{- else }}
+                name: {{ include "generic.fullname" $ }}
+                port:
+                  {{- if $.Values.service.ports }}
+                  name: {{ (index $.Values.service.ports 0).name }}
+                  {{- else }}
+                  number: 80
+                  {{- end }}
+                {{- end }}
+          {{- end }}
+    {{- end }}
+{{- end }}
+---
+{{- /* Extra ingresses */ -}}
+{{- range $name, $ing := .Values.extraIngresses }}
+{{- if $ing.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "generic.fullname" $ }}-{{ $name }}
+  namespace: {{ include "generic.namespace" $ }}
+  labels:
+    {{- include "generic.resourceLabels" (dict "context" $ "labels" $ing.labels) | nindent 4 }}
+  {{- $annotations := include "generic.resourceAnnotations" (dict "context" $ "annotations" $ing.annotations) }}
+  {{- if $annotations }}
+  annotations:
+    {{- $annotations | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if $ing.className }}
+  ingressClassName: {{ $ing.className }}
+  {{- end }}
+  {{- if $ing.tls }}
+  tls:
+    {{- range $ing.tls }}
+    - hosts:
+        {{- range .hosts }}
+        - {{ . | quote }}
+        {{- end }}
+      secretName: {{ .secretName }}
+    {{- end }}
+  {{- end }}
+  rules:
+    {{- range $ing.hosts }}
+    - host: {{ .host | quote }}
+      http:
+        paths:
+          {{- range .paths }}
+          - path: {{ .path }}
+            pathType: {{ .pathType | default "Prefix" }}
+            backend:
+              service:
+                name: {{ .service.name | default (include "generic.fullname" $) }}
+                port:
+                  number: {{ .service.port | default 80 }}
+          {{- end }}
+    {{- end }}
+---
+{{- end }}
+{{- end }}

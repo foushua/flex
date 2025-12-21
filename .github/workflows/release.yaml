@@ -1,0 +1,174 @@
+name: Release - Publish Helm Chart
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+      - 'chart-*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 1.2.3)'
+        required: true
+        type: string
+
+env:
+  HELM_VERSION: '3.14.0'
+
+jobs:
+  # ============================================
+  # Job 1: Validate before release
+  # ============================================
+  validate:
+    name: ✅ Pre-release Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - name: Validate chart
+        run: |
+          helm lint .
+          for f in examples/*.yaml; do
+            helm lint . -f "$f"
+          done
+
+      - name: Check version consistency
+        run: |
+          CHART_VERSION=$(grep '^version:' Chart.yaml | awk '{print $2}')
+          echo "Chart version: $CHART_VERSION"
+          
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            EXPECTED_VERSION="${{ github.event.inputs.version }}"
+          else
+            # Extract version from tag (remove 'v' or 'chart-' prefix)
+            TAG="${{ github.ref_name }}"
+            EXPECTED_VERSION="${TAG#v}"
+            EXPECTED_VERSION="${EXPECTED_VERSION#chart-}"
+          fi
+          
+          if [ "$CHART_VERSION" != "$EXPECTED_VERSION" ]; then
+            echo "⚠️ Warning: Chart version ($CHART_VERSION) doesn't match expected version ($EXPECTED_VERSION)"
+          fi
+
+  # ============================================
+  # Job 2: Package and Release
+  # ============================================
+  release:
+    name: 📦 Package & Release
+    runs-on: ubuntu-latest
+    needs: validate
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - name: Package Helm chart
+        run: |
+          mkdir -p .cr-release-packages
+          helm package . -d .cr-release-packages
+          echo "📦 Packaged charts:"
+          ls -la .cr-release-packages/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: .cr-release-packages/*.tgz
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ============================================
+  # Job 3: Publish to GitHub Pages (Helm repo)
+  # ============================================
+  publish-pages:
+    name: 🌐 Publish to GitHub Pages
+    runs-on: ubuntu-latest
+    needs: release
+    permissions:
+      contents: write
+      pages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - name: Run chart-releaser
+        uses: helm/chart-releaser-action@v1.6.0
+        with:
+          charts_dir: .
+          skip_packaging: false
+          skip_existing: true
+        env:
+          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+
+  # ============================================
+  # Job 4: Publish to OCI Registry (GHCR)
+  # ============================================
+  publish-oci:
+    name: 🐳 Publish to OCI Registry
+    runs-on: ubuntu-latest
+    needs: release
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - name: Login to GitHub Container Registry
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Package and push to GHCR
+        run: |
+          CHART_NAME=$(grep '^name:' Chart.yaml | awk '{print $2}')
+          CHART_VERSION=$(grep '^version:' Chart.yaml | awk '{print $2}')
+          
+          echo "📦 Packaging $CHART_NAME version $CHART_VERSION..."
+          helm package .
+          
+          echo "🚀 Pushing to ghcr.io/${{ github.repository_owner }}/$CHART_NAME:$CHART_VERSION"
+          helm push "${CHART_NAME}-${CHART_VERSION}.tgz" oci://ghcr.io/${{ github.repository_owner }}/charts
+
+      - name: Logout from registry
+        run: helm registry logout ghcr.io
+        if: always()

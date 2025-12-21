@@ -1,0 +1,39 @@
+{{- if eq .Values.workload.type "cronjob" }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "generic.fullname" . }}
+  namespace: {{ include "generic.namespace" . }}
+  labels:
+    {{- include "generic.labels" . | nindent 4 }}
+  {{- $annotations := include "generic.resourceAnnotations" (dict "context" . "annotations" dict) }}
+  {{- if $annotations }}
+  annotations:
+    {{- $annotations | nindent 4 }}
+  {{- end }}
+spec:
+  schedule: {{ .Values.workload.cronjob.schedule | quote }}
+  concurrencyPolicy: {{ .Values.workload.cronjob.concurrencyPolicy }}
+  {{- if .Values.workload.cronjob.suspend }}
+  suspend: {{ .Values.workload.cronjob.suspend }}
+  {{- end }}
+  successfulJobsHistoryLimit: {{ .Values.workload.cronjob.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.workload.cronjob.failedJobsHistoryLimit }}
+  {{- if .Values.workload.cronjob.startingDeadlineSeconds }}
+  startingDeadlineSeconds: {{ .Values.workload.cronjob.startingDeadlineSeconds }}
+  {{- end }}
+  jobTemplate:
+    metadata:
+      labels:
+        {{- include "generic.labels" . | nindent 8 }}
+    spec:
+      {{- if .Values.workload.cronjob.backoffLimit }}
+      backoffLimit: {{ .Values.workload.cronjob.backoffLimit }}
+      {{- end }}
+      template:
+        metadata:
+          {{- include "generic.podMetadata" . | nindent 10 }}
+        spec:
+          restartPolicy: {{ .Values.workload.cronjob.restartPolicy }}
+          {{- include "generic.podSpec" . | nindent 10 }}
+{{- end }}

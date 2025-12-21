@@ -1,0 +1,91 @@
+{{- if .Values.rbac.create }}
+{{- if .Values.rbac.clusterWide }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "generic.fullname" . }}
+  labels:
+    {{- include "generic.labels" . | nindent 4 }}
+  {{- $annotations := include "generic.resourceAnnotations" (dict "context" . "annotations" dict) }}
+  {{- if $annotations }}
+  annotations:
+    {{- $annotations | nindent 4 }}
+  {{- end }}
+{{- if .Values.rbac.existingRole }}
+# Using existing ClusterRole: {{ .Values.rbac.existingRole }}
+{{- else }}
+rules:
+  {{- toYaml .Values.rbac.rules | nindent 2 }}
+{{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "generic.fullname" . }}
+  labels:
+    {{- include "generic.labels" . | nindent 4 }}
+  {{- $annotations := include "generic.resourceAnnotations" (dict "context" . "annotations" dict) }}
+  {{- if $annotations }}
+  annotations:
+    {{- $annotations | nindent 4 }}
+  {{- end }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  {{- if .Values.rbac.existingRole }}
+  name: {{ .Values.rbac.existingRole }}
+  {{- else }}
+  name: {{ include "generic.fullname" . }}
+  {{- end }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "generic.serviceAccountName" . }}
+    namespace: {{ include "generic.namespace" . }}
+{{- else }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "generic.fullname" . }}
+  namespace: {{ include "generic.namespace" . }}
+  labels:
+    {{- include "generic.labels" . | nindent 4 }}
+  {{- $annotations := include "generic.resourceAnnotations" (dict "context" . "annotations" dict) }}
+  {{- if $annotations }}
+  annotations:
+    {{- $annotations | nindent 4 }}
+  {{- end }}
+{{- if .Values.rbac.existingRole }}
+# Using existing Role: {{ .Values.rbac.existingRole }}
+{{- else }}
+rules:
+  {{- toYaml .Values.rbac.rules | nindent 2 }}
+{{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "generic.fullname" . }}
+  namespace: {{ include "generic.namespace" . }}
+  labels:
+    {{- include "generic.labels" . | nindent 4 }}
+  {{- $annotations := include "generic.resourceAnnotations" (dict "context" . "annotations" dict) }}
+  {{- if $annotations }}
+  annotations:
+    {{- $annotations | nindent 4 }}
+  {{- end }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  {{- if .Values.rbac.existingRole }}
+  name: {{ .Values.rbac.existingRole }}
+  {{- else }}
+  name: {{ include "generic.fullname" . }}
+  {{- end }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "generic.serviceAccountName" . }}
+    namespace: {{ include "generic.namespace" . }}
+{{- end }}
+{{- end }}

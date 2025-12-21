@@ -1,0 +1,328 @@
+name: CI - Lint, Test & Validate
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'Chart.yaml'
+      - 'values.yaml'
+      - 'templates/**'
+      - 'examples/**'
+      - '.github/workflows/ci.yaml'
+  pull_request:
+    branches: [main, master]
+    paths:
+      - 'Chart.yaml'
+      - 'values.yaml'
+      - 'templates/**'
+      - 'examples/**'
+      - '.github/workflows/ci.yaml'
+
+env:
+  HELM_VERSION: '3.14.0'
+  KUBERNETES_VERSION: '1.29.0'
+
+jobs:
+  # ============================================
+  # Job 1: Lint & Validate
+  # ============================================
+  lint:
+    name: 🔍 Lint & Validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - name: Add Helm repos (if needed)
+        run: |
+          helm repo add stable https://charts.helm.sh/stable || true
+          helm repo update
+
+      - name: Install yamllint
+        run: |
+          pipx install yamllint && pipx ensurepath || pip install --break-system-packages yamllint
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Lint YAML files
+        run: |
+          echo "🔍 Linting YAML files..."
+          cat > /tmp/yamllint-config.yaml << 'EOF'
+          extends: default
+          rules:
+            line-length:
+              max: 200
+              level: warning
+            truthy:
+              check-keys: false
+            comments:
+              min-spaces-from-content: 1
+            document-start: disable
+          EOF
+          export PATH="$HOME/.local/bin:$PATH"
+          # Exclude templates/ as Helm templates are not valid YAML
+          yamllint -c /tmp/yamllint-config.yaml values.yaml Chart.yaml examples/ .github/ || true
+
+      - name: Helm Lint
+        run: |
+          echo "🔍 Linting chart..."
+          helm lint .
+
+      - name: Helm Lint with examples
+        run: |
+          echo "🔍 Linting chart with each example..."
+          for f in examples/*.yaml; do
+            echo "  → Testing with $f"
+            helm lint . -f "$f"
+          done
+
+  # ============================================
+  # Job 2: Template Validation
+  # ============================================
+  template:
+    name: 📝 Template Validation
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - name: Install kubeconform
+        run: |
+          wget -q https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz
+          tar xzf kubeconform-linux-amd64.tar.gz
+          sudo mv kubeconform /usr/local/bin/
+
+      - name: Generate and validate templates (default values)
+        run: |
+          echo "📝 Generating templates with default values..."
+          helm template test-release . > /tmp/manifests-default.yaml
+          
+          echo "✅ Validating manifests with kubeconform..."
+          kubeconform -strict -summary \
+            -kubernetes-version ${{ env.KUBERNETES_VERSION }} \
+            -ignore-missing-schemas \
+            /tmp/manifests-default.yaml
+
+      - name: Generate and validate templates (all examples)
+        run: |
+          echo "📝 Testing all example configurations..."
+          for f in examples/*.yaml; do
+            echo ""
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "🧪 Testing: $f"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            
+            helm template test-release . -f "$f" > /tmp/manifests.yaml
+            
+            kubeconform -strict -summary \
+              -kubernetes-version ${{ env.KUBERNETES_VERSION }} \
+              -ignore-missing-schemas \
+              /tmp/manifests.yaml
+          done
+
+      - name: Upload manifests artifacts
+        uses: actions/upload-artifact@v4
+        if: ${{ !env.ACT }}  # Skip when running with act locally
+        with:
+          name: generated-manifests
+          path: /tmp/manifests-default.yaml
+          retention-days: 7
+
+  # ============================================
+  # Job 3: Security Scan
+  # ============================================
+  security:
+    name: 🔒 Security Scan
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - name: Generate manifests
+        run: |
+          mkdir -p /tmp/manifests
+          helm template test-release . > /tmp/manifests/default.yaml
+          for f in examples/*.yaml; do
+            name=$(basename "$f" .yaml)
+            helm template test-release . -f "$f" > "/tmp/manifests/$name.yaml"
+          done
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'config'
+          scan-ref: '/tmp/manifests'
+          format: 'table'
+          exit-code: '0'  # Set to '1' to fail on vulnerabilities
+          severity: 'CRITICAL,HIGH,MEDIUM'
+
+      - name: Install kube-score
+        run: |
+          wget -q https://github.com/zegl/kube-score/releases/latest/download/kube-score_linux_amd64.tar.gz
+          tar xzf kube-score_linux_amd64.tar.gz
+          sudo mv kube-score /usr/local/bin/
+
+      - name: Run kube-score
+        run: |
+          echo "📊 Running kube-score analysis..."
+          for f in /tmp/manifests/*.yaml; do
+            echo ""
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "📋 Scoring: $(basename $f)"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            kube-score score "$f" || true
+          done
+
+      - name: Install pluto (deprecated API checker)
+        run: |
+          wget -q https://github.com/FairwindsOps/pluto/releases/latest/download/pluto_linux_amd64.tar.gz
+          tar xzf pluto_linux_amd64.tar.gz
+          sudo mv pluto /usr/local/bin/
+
+      - name: Check for deprecated APIs
+        run: |
+          echo "🔍 Checking for deprecated Kubernetes APIs..."
+          for f in /tmp/manifests/*.yaml; do
+            echo "  → Checking $(basename $f)..."
+            pluto detect-files -d "$f" || true
+          done
+
+  # ============================================
+  # Job 4: Helm Unit Tests
+  # ============================================
+  unit-tests:
+    name: 🧪 Unit Tests
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - name: Install helm-unittest plugin
+        run: |
+          # Install a specific version to avoid compatibility issues
+          helm plugin install https://github.com/helm-unittest/helm-unittest.git --version v0.5.1 || \
+          helm plugin install https://github.com/helm-unittest/helm-unittest.git --version v0.4.4 || \
+          echo "⚠️ Could not install helm-unittest plugin, skipping"
+
+      - name: Run unit tests
+        run: |
+          if [ -d "tests" ]; then
+            echo "🧪 Running Helm unit tests..."
+            helm unittest .
+          else
+            echo "⚠️ No tests directory found. Skipping unit tests."
+            echo "💡 Create tests in ./tests/ directory to enable unit testing."
+          fi
+
+  # ============================================
+  # Job 5: Integration Test (Kind cluster)
+  # ============================================
+  integration:
+    name: 🚀 Integration Test
+    runs-on: ubuntu-latest
+    needs: [template, security]
+    strategy:
+      fail-fast: false
+      matrix:
+        k8s-version:
+          - v1.28.0
+          - v1.29.0
+          - v1.30.0
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - name: Create Kind cluster
+        uses: helm/kind-action@v1
+        with:
+          node_image: kindest/node:${{ matrix.k8s-version }}
+          cluster_name: chart-testing
+
+      - name: Install chart with default values
+        run: |
+          echo "🚀 Installing chart with default values..."
+          helm install test-default . --wait --timeout 120s
+          
+          echo "📋 Checking deployed resources..."
+          kubectl get all -l app.kubernetes.io/instance=test-default
+          
+          helm uninstall test-default
+
+      - name: Test with deployment-simple example
+        run: |
+          echo "🚀 Testing deployment-simple example..."
+          helm install test-simple . -f examples/deployment-simple.yaml --wait --timeout 120s
+          kubectl get all -l app.kubernetes.io/instance=test-simple
+          helm uninstall test-simple
+
+      - name: Test with deployment-full example
+        run: |
+          echo "🚀 Testing deployment-full example..."
+          # May need to skip some features that require cluster components
+          helm install test-full . -f examples/deployment-full.yaml --wait --timeout 180s || true
+          kubectl get all -l app.kubernetes.io/instance=test-full || true
+          helm uninstall test-full || true
+
+  # ============================================
+  # Job 6: Documentation
+  # ============================================
+  docs:
+    name: 📚 Documentation
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install helm-docs
+        run: |
+          # Use a specific version instead of 'latest' for reliability
+          HELM_DOCS_VERSION="1.14.2"
+          wget -q "https://github.com/norwoodj/helm-docs/releases/download/v${HELM_DOCS_VERSION}/helm-docs_${HELM_DOCS_VERSION}_Linux_x86_64.tar.gz" || \
+          wget -q "https://github.com/norwoodj/helm-docs/releases/download/v1.13.1/helm-docs_1.13.1_Linux_x86_64.tar.gz"
+          tar xzf helm-docs_*.tar.gz
+          sudo mv helm-docs /usr/local/bin/ || mv helm-docs /usr/local/bin/
+
+      - name: Generate documentation
+        run: |
+          echo "📚 Generating documentation..."
+          helm-docs --chart-search-root=. --template-files=.github/helm-docs-template.md.gotmpl || helm-docs --chart-search-root=.
+          
+      - name: Check for documentation changes
+        run: |
+          if git diff --exit-code README.md; then
+            echo "✅ Documentation is up to date"
+          else
+            echo "⚠️ Documentation needs updating!"
+            echo "Run 'helm-docs' locally to update README.md"
+            git diff README.md
+          fi
