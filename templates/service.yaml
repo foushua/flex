@@ -2,11 +2,11 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "generic.fullname" . }}
-  namespace: {{ include "generic.namespace" . }}
+  name: {{ include "flex.fullname" . }}
+  namespace: {{ include "flex.namespace" . }}
   labels:
-    {{- include "generic.resourceLabels" (dict "context" . "labels" .Values.service.labels) | nindent 4 }}
-  {{- $annotations := include "generic.resourceAnnotations" (dict "context" . "annotations" .Values.service.annotations) }}
+    {{- include "flex.resourceLabels" (dict "context" . "labels" .Values.service.labels) | nindent 4 }}
+  {{- $annotations := include "flex.resourceAnnotations" (dict "context" . "annotations" .Values.service.annotations) }}
   {{- if $annotations }}
   annotations:
     {{- $annotations | nindent 4 }}
@@ -54,7 +54,7 @@ spec:
       {{- end }}
     {{- end }}
   selector:
-    {{- include "generic.selectorLabels" . | nindent 4 }}
+    {{- include "flex.selectorLabels" . | nindent 4 }}
 {{- end }}
 ---
 {{- /* Headless service for StatefulSet */ -}}
@@ -62,11 +62,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "generic.statefulset.serviceName" . }}
-  namespace: {{ include "generic.namespace" . }}
+  name: {{ include "flex.statefulset.serviceName" . }}
+  namespace: {{ include "flex.namespace" . }}
   labels:
-    {{- include "generic.resourceLabels" (dict "context" . "labels" .Values.service.labels) | nindent 4 }}
-  {{- $annotations := include "generic.resourceAnnotations" (dict "context" . "annotations" .Values.service.annotations) }}
+    {{- include "flex.resourceLabels" (dict "context" . "labels" .Values.service.labels) | nindent 4 }}
+  {{- $annotations := include "flex.resourceAnnotations" (dict "context" . "annotations" .Values.service.annotations) }}
   {{- if $annotations }}
   annotations:
     {{- $annotations | nindent 4 }}
@@ -85,7 +85,7 @@ spec:
       protocol: {{ .protocol | default "TCP" }}
     {{- end }}
   selector:
-    {{- include "generic.selectorLabels" . | nindent 4 }}
+    {{- include "flex.selectorLabels" . | nindent 4 }}
 {{- end }}
 ---
 {{- /* Extra services */ -}}
@@ -93,11 +93,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "generic.fullname" $ }}-{{ $name }}
-  namespace: {{ include "generic.namespace" $ }}
+  name: {{ include "flex.fullname" $ }}-{{ $name }}
+  namespace: {{ include "flex.namespace" $ }}
   labels:
-    {{- include "generic.resourceLabels" (dict "context" $ "labels" $svc.labels) | nindent 4 }}
-  {{- $annotations := include "generic.resourceAnnotations" (dict "context" $ "annotations" $svc.annotations) }}
+    {{- include "flex.resourceLabels" (dict "context" $ "labels" $svc.labels) | nindent 4 }}
+  {{- $annotations := include "flex.resourceAnnotations" (dict "context" $ "annotations" $svc.annotations) }}
   {{- if $annotations }}
   annotations:
     {{- $annotations | nindent 4 }}
@@ -115,6 +115,6 @@ spec:
       protocol: {{ .protocol | default "TCP" }}
     {{- end }}
   selector:
-    {{- include "generic.selectorLabels" $ | nindent 4 }}
+    {{- include "flex.selectorLabels" $ | nindent 4 }}
 ---
 {{- end }}

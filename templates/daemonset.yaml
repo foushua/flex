@@ -2,11 +2,11 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: {{ include "generic.fullname" . }}
-  namespace: {{ include "generic.namespace" . }}
+  name: {{ include "flex.fullname" . }}
+  namespace: {{ include "flex.namespace" . }}
   labels:
-    {{- include "generic.labels" . | nindent 4 }}
-  {{- $annotations := include "generic.resourceAnnotations" (dict "context" . "annotations" dict) }}
+    {{- include "flex.labels" . | nindent 4 }}
+  {{- $annotations := include "flex.resourceAnnotations" (dict "context" . "annotations" dict) }}
   {{- if $annotations }}
   annotations:
     {{- $annotations | nindent 4 }}
@@ -22,10 +22,10 @@ spec:
   {{- end }}
   selector:
     matchLabels:
-      {{- include "generic.selectorLabels" . | nindent 6 }}
+      {{- include "flex.selectorLabels" . | nindent 6 }}
   template:
     metadata:
-      {{- include "generic.podMetadata" . | nindent 6 }}
+      {{- include "flex.podMetadata" . | nindent 6 }}
     spec:
-      {{- include "generic.podSpec" . | nindent 6 }}
+      {{- include "flex.podSpec" . | nindent 6 }}
 {{- end }}

@@ -1,9 +1,9 @@
 {{/*
 Common labels for all resources.
 */}}
-{{- define "generic.labels" -}}
-helm.sh/chart: {{ include "generic.chart" . }}
-{{ include "generic.selectorLabels" . }}
+{{- define "flex.labels" -}}
+helm.sh/chart: {{ include "flex.chart" . }}
+{{ include "flex.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -16,16 +16,16 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{/*
 Selector labels - these must NOT change after deployment.
 */}}
-{{- define "generic.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "generic.name" . }}
+{{- define "flex.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "flex.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
 Pod labels including selector labels and custom pod labels.
 */}}
-{{- define "generic.podLabels" -}}
-{{ include "generic.selectorLabels" . }}
+{{- define "flex.podLabels" -}}
+{{ include "flex.selectorLabels" . }}
 {{- with .Values.podLabels }}
 {{ toYaml . }}
 {{- end }}
@@ -34,7 +34,7 @@ Pod labels including selector labels and custom pod labels.
 {{/*
 Common annotations for all resources.
 */}}
-{{- define "generic.annotations" -}}
+{{- define "flex.annotations" -}}
 {{- with .Values.global.commonAnnotations }}
 {{ toYaml . }}
 {{- end }}
@@ -43,7 +43,7 @@ Common annotations for all resources.
 {{/*
 Pod annotations.
 */}}
-{{- define "generic.podAnnotations" -}}
+{{- define "flex.podAnnotations" -}}
 {{- with .Values.podAnnotations }}
 {{ toYaml . }}
 {{- end }}
@@ -51,10 +51,10 @@ Pod annotations.
 
 {{/*
 Labels for a specific resource with optional extra labels.
-Usage: {{ include "generic.resourceLabels" (dict "context" . "labels" .Values.service.labels) }}
+Usage: {{ include "flex.resourceLabels" (dict "context" . "labels" .Values.service.labels) }}
 */}}
-{{- define "generic.resourceLabels" -}}
-{{- include "generic.labels" .context }}
+{{- define "flex.resourceLabels" -}}
+{{- include "flex.labels" .context }}
 {{- with .labels }}
 {{ toYaml . }}
 {{- end }}
@@ -62,10 +62,10 @@ Usage: {{ include "generic.resourceLabels" (dict "context" . "labels" .Values.se
 
 {{/*
 Annotations for a specific resource with optional extra annotations.
-Usage: {{ include "generic.resourceAnnotations" (dict "context" . "annotations" .Values.service.annotations) }}
+Usage: {{ include "flex.resourceAnnotations" (dict "context" . "annotations" .Values.service.annotations) }}
 */}}
-{{- define "generic.resourceAnnotations" -}}
-{{- $commonAnnotations := include "generic.annotations" .context | fromYaml }}
+{{- define "flex.resourceAnnotations" -}}
+{{- $commonAnnotations := include "flex.annotations" .context | fromYaml }}
 {{- $resourceAnnotations := .annotations | default dict }}
 {{- $merged := merge $resourceAnnotations $commonAnnotations }}
 {{- if $merged }}

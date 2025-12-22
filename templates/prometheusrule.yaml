@@ -2,15 +2,15 @@
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
-  name: {{ include "generic.fullname" . }}
+  name: {{ include "flex.fullname" . }}
   {{- if .Values.prometheusRule.namespace }}
   namespace: {{ .Values.prometheusRule.namespace }}
   {{- else }}
-  namespace: {{ include "generic.namespace" . }}
+  namespace: {{ include "flex.namespace" . }}
   {{- end }}
   labels:
-    {{- include "generic.resourceLabels" (dict "context" . "labels" .Values.prometheusRule.labels) | nindent 4 }}
-  {{- $annotations := include "generic.resourceAnnotations" (dict "context" . "annotations" .Values.prometheusRule.annotations) }}
+    {{- include "flex.resourceLabels" (dict "context" . "labels" .Values.prometheusRule.labels) | nindent 4 }}
+  {{- $annotations := include "flex.resourceAnnotations" (dict "context" . "annotations" .Values.prometheusRule.annotations) }}
   {{- if $annotations }}
   annotations:
     {{- $annotations | nindent 4 }}

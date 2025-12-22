@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -70,7 +70,7 @@ jobs:
       packages: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -112,7 +112,7 @@ jobs:
       pages: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -126,14 +126,61 @@ jobs:
         with:
           version: ${{ env.HELM_VERSION }}
 
-      - name: Run chart-releaser
-        uses: helm/chart-releaser-action@v1.6.0
-        with:
-          charts_dir: .
-          skip_packaging: false
-          skip_existing: true
-        env:
-          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+      - name: Package chart
+        run: |
+          CHART_NAME=$(grep '^name:' Chart.yaml | awk '{print $2}')
+          CHART_VERSION=$(grep '^version:' Chart.yaml | awk '{print $2}')
+          echo "📦 Packaging $CHART_NAME version $CHART_VERSION..."
+          
+          mkdir -p .cr-release-packages
+          helm package . -d .cr-release-packages
+          
+          # Add .nojekyll to prevent Jekyll processing on gh-pages
+          touch .cr-release-packages/.nojekyll
+          
+          echo "CHART_NAME=$CHART_NAME" >> $GITHUB_ENV
+          echo "CHART_VERSION=$CHART_VERSION" >> $GITHUB_ENV
+          
+          ls -la .cr-release-packages/
+
+      - name: Update gh-pages index
+        run: |
+          # Use the actual tag name for the URL (matches GitHub Release)
+          RELEASE_TAG="${{ github.ref_name }}"
+          RELEASE_URL="https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}"
+          
+          # Check if gh-pages branch exists
+          if git ls-remote --exit-code --heads origin gh-pages > /dev/null 2>&1; then
+            echo "📥 gh-pages branch exists, fetching..."
+            git fetch origin gh-pages
+            git worktree add gh-pages-branch origin/gh-pages
+            
+            echo "📝 Merging with existing index..."
+            helm repo index .cr-release-packages --url "${RELEASE_URL}" --merge gh-pages-branch/index.yaml
+          else
+            echo "🆕 gh-pages branch doesn't exist, creating..."
+            # Create orphan branch for gh-pages
+            git worktree add --detach gh-pages-branch
+            cd gh-pages-branch
+            git checkout --orphan gh-pages
+            git rm -rf . 2>/dev/null || true
+            cd ..
+            
+            echo "📝 Creating new index..."
+            helm repo index .cr-release-packages --url "${RELEASE_URL}"
+          fi
+          
+          # Copy new index and .nojekyll to gh-pages branch
+          cp .cr-release-packages/index.yaml gh-pages-branch/
+          cp .cr-release-packages/.nojekyll gh-pages-branch/
+          
+          # Commit and push
+          cd gh-pages-branch
+          git add index.yaml .nojekyll
+          git commit -m "Update Helm repository index for ${{ env.CHART_NAME }}-${{ env.CHART_VERSION }}" || echo "No changes to commit"
+          git push origin HEAD:gh-pages
+          
+          echo "✅ Index updated on gh-pages branch"
 
   # ============================================
   # Job 4: Publish to OCI Registry (GHCR)
@@ -147,7 +194,7 @@ jobs:
       packages: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Helm
         uses: azure/setup-helm@v4

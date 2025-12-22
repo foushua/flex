@@ -1,10 +1,10 @@
 {{/*
 Pod template spec - shared by all workload types.
 */}}
-{{- define "generic.podSpec" -}}
-{{- include "generic.imagePullSecrets" . }}
+{{- define "flex.podSpec" -}}
+{{- include "flex.imagePullSecrets" . }}
 {{- if .Values.serviceAccount.create }}
-serviceAccountName: {{ include "generic.serviceAccountName" . }}
+serviceAccountName: {{ include "flex.serviceAccountName" . }}
 {{- else if .Values.serviceAccount.name }}
 serviceAccountName: {{ .Values.serviceAccount.name }}
 {{- end }}
@@ -47,7 +47,7 @@ schedulerName: {{ .Values.schedulerName }}
 initContainers:
   {{- range $name, $container := .Values.initContainers }}
   - name: {{ $name }}
-    image: {{ include "generic.image" (dict "image" $container.image "global" $.Values.global "Chart" $.Chart) }}
+    image: {{ include "flex.image" (dict "image" $container.image "global" $.Values.global "Chart" $.Chart) }}
     imagePullPolicy: {{ $container.image.pullPolicy | default "IfNotPresent" }}
     {{- with $container.command }}
     command:
@@ -81,8 +81,8 @@ initContainers:
 {{- end }}
 containers:
   {{/* Main container */}}
-  - name: {{ .Values.container.name | default (include "generic.name" .) }}
-    image: {{ include "generic.image" (dict "image" .Values.container.image "global" .Values.global "Chart" .Chart) }}
+  - name: {{ .Values.container.name | default (include "flex.name" .) }}
+    image: {{ include "flex.image" (dict "image" .Values.container.image "global" .Values.global "Chart" .Chart) }}
     imagePullPolicy: {{ .Values.container.image.pullPolicy | default "IfNotPresent" }}
     {{- with .Values.container.command }}
     command:
@@ -138,7 +138,7 @@ containers:
   {{/* Sidecars */}}
   {{- range $name, $container := .Values.sidecars }}
   - name: {{ $name }}
-    image: {{ include "generic.image" (dict "image" $container.image "global" $.Values.global "Chart" $.Chart) }}
+    image: {{ include "flex.image" (dict "image" $container.image "global" $.Values.global "Chart" $.Chart) }}
     imagePullPolicy: {{ $container.image.pullPolicy | default "IfNotPresent" }}
     {{- with $container.command }}
     command:
@@ -196,7 +196,7 @@ containers:
 {{- /* Add persistence volume if enabled */ -}}
 {{- if and .Values.persistence.enabled (not .Values.persistence.existingClaim) }}
 {{- if ne .Values.workload.type "statefulset" }}
-{{- $volumes = append $volumes (dict "name" "data" "persistentVolumeClaim" (dict "claimName" (include "generic.fullname" .))) }}
+{{- $volumes = append $volumes (dict "name" "data" "persistentVolumeClaim" (dict "claimName" (include "flex.fullname" .))) }}
 {{- end }}
 {{- else if .Values.persistence.existingClaim }}
 {{- $volumes = append $volumes (dict "name" "data" "persistentVolumeClaim" (dict "claimName" .Values.persistence.existingClaim)) }}
@@ -204,19 +204,19 @@ containers:
 {{- /* Add extra persistence volumes */ -}}
 {{- range $name, $pvc := .Values.extraPersistence }}
 {{- if $pvc.enabled }}
-{{- $volumes = append $volumes (dict "name" $name "persistentVolumeClaim" (dict "claimName" (printf "%s-%s" (include "generic.fullname" $) $name))) }}
+{{- $volumes = append $volumes (dict "name" $name "persistentVolumeClaim" (dict "claimName" (printf "%s-%s" (include "flex.fullname" $) $name))) }}
 {{- end }}
 {{- end }}
 {{- /* Add configMap volumes */ -}}
 {{- range $name, $cm := .Values.configMaps }}
 {{- if $cm.enabled }}
-{{- $volumes = append $volumes (dict "name" (printf "configmap-%s" $name) "configMap" (dict "name" (printf "%s-%s" (include "generic.fullname" $) $name))) }}
+{{- $volumes = append $volumes (dict "name" (printf "configmap-%s" $name) "configMap" (dict "name" (printf "%s-%s" (include "flex.fullname" $) $name))) }}
 {{- end }}
 {{- end }}
 {{- /* Add secret volumes */ -}}
 {{- range $name, $secret := .Values.secrets }}
 {{- if $secret.enabled }}
-{{- $volumes = append $volumes (dict "name" (printf "secret-%s" $name) "secret" (dict "secretName" (printf "%s-%s" (include "generic.fullname" $) $name))) }}
+{{- $volumes = append $volumes (dict "name" (printf "secret-%s" $name) "secret" (dict "secretName" (printf "%s-%s" (include "flex.fullname" $) $name))) }}
 {{- end }}
 {{- end }}
 {{- /* Add extra volumes */ -}}
@@ -248,10 +248,10 @@ topologySpreadConstraints:
 {{/*
 Pod metadata (labels and annotations).
 */}}
-{{- define "generic.podMetadata" -}}
+{{- define "flex.podMetadata" -}}
 labels:
-  {{- include "generic.podLabels" . | nindent 2 }}
-{{- $annotations := include "generic.podAnnotations" . }}
+  {{- include "flex.podLabels" . | nindent 2 }}
+{{- $annotations := include "flex.podAnnotations" . }}
 {{- if $annotations }}
 annotations:
   {{- $annotations | nindent 2 }}

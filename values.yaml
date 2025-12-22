@@ -1,7 +1,7 @@
 # =============================================================================
-# GENERIC HELM CHART - DEFAULT VALUES
+# FLEX HELM CHART - DEFAULT VALUES
 # =============================================================================
-# This is a super generic, fully customizable Helm chart that can deploy any
+# This is a flexible, universal Helm chart that can deploy any
 # workload type on Kubernetes with maximum flexibility.
 # =============================================================================
 

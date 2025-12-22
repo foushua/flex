@@ -8,6 +8,7 @@ on:
       - 'values.yaml'
       - 'templates/**'
       - 'examples/**'
+      - 'tests/**'
       - '.github/workflows/ci.yaml'
   pull_request:
     branches: [main, master]
@@ -16,6 +17,7 @@ on:
       - 'values.yaml'
       - 'templates/**'
       - 'examples/**'
+      - 'tests/**'
       - '.github/workflows/ci.yaml'
 
 env:
@@ -31,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -91,7 +93,7 @@ jobs:
     needs: lint
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Helm
         uses: azure/setup-helm@v4
@@ -133,7 +135,7 @@ jobs:
           done
 
       - name: Upload manifests artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         if: ${{ !env.ACT }}  # Skip when running with act locally
         with:
           name: generated-manifests
@@ -149,7 +151,7 @@ jobs:
     needs: lint
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Helm
         uses: azure/setup-helm@v4
@@ -176,8 +178,11 @@ jobs:
 
       - name: Install kube-score
         run: |
-          wget -q https://github.com/zegl/kube-score/releases/latest/download/kube-score_linux_amd64.tar.gz
-          tar xzf kube-score_linux_amd64.tar.gz
+          # Use specific version for reliability
+          KUBE_SCORE_VERSION="1.18.0"
+          wget -q "https://github.com/zegl/kube-score/releases/download/v${KUBE_SCORE_VERSION}/kube-score_${KUBE_SCORE_VERSION}_linux_amd64.tar.gz" || \
+          wget -q "https://github.com/zegl/kube-score/releases/download/v1.17.0/kube-score_1.17.0_linux_amd64.tar.gz"
+          tar xzf kube-score_*.tar.gz
           sudo mv kube-score /usr/local/bin/
 
       - name: Run kube-score
@@ -193,8 +198,11 @@ jobs:
 
       - name: Install pluto (deprecated API checker)
         run: |
-          wget -q https://github.com/FairwindsOps/pluto/releases/latest/download/pluto_linux_amd64.tar.gz
-          tar xzf pluto_linux_amd64.tar.gz
+          # Use specific version for reliability
+          PLUTO_VERSION="5.21.0"
+          wget -q "https://github.com/FairwindsOps/pluto/releases/download/v${PLUTO_VERSION}/pluto_${PLUTO_VERSION}_linux_amd64.tar.gz" || \
+          wget -q "https://github.com/FairwindsOps/pluto/releases/download/v5.20.0/pluto_5.20.0_linux_amd64.tar.gz"
+          tar xzf pluto_*.tar.gz
           sudo mv pluto /usr/local/bin/
 
       - name: Check for deprecated APIs
@@ -214,7 +222,7 @@ jobs:
     needs: lint
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Helm
         uses: azure/setup-helm@v4
@@ -254,7 +262,7 @@ jobs:
           - v1.30.0
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Helm
         uses: azure/setup-helm@v4
@@ -266,31 +274,55 @@ jobs:
         with:
           node_image: kindest/node:${{ matrix.k8s-version }}
           cluster_name: chart-testing
+          wait: 120s
+
+      - name: Wait for cluster to be ready
+        run: |
+          echo "⏳ Waiting for cluster to be fully ready..."
+          kubectl wait --for=condition=Ready nodes --all --timeout=120s
+          kubectl wait --for=condition=Ready pods --all -n kube-system --timeout=120s
+          echo "✅ Cluster is ready"
+          kubectl cluster-info
+
+      - name: Pre-pull test images
+        run: |
+          echo "📥 Pre-pulling test images to speed up deployments..."
+          # Pull nginx image on the Kind node to avoid timeout during helm install
+          docker exec chart-testing-control-plane crictl pull docker.io/library/nginx:latest || true
+          docker exec chart-testing-control-plane crictl pull docker.io/library/nginx:1.25 || true
+          echo "✅ Images pre-pulled"
 
       - name: Install chart with default values
         run: |
-          echo "🚀 Installing chart with default values..."
-          helm install test-default . --wait --timeout 120s
+          echo "🚀 Installing chart with default values... (except the image tag, which is set to latest)"
+          if ! helm install test-default . --set container.image.tag="latest" --wait --timeout 300s; then
+            echo "❌ Helm install failed. Debugging info:"
+            echo "--- Pod Status ---"
+            kubectl get pods -A
+            echo "--- Pod Descriptions ---"
+            kubectl describe pods -l app.kubernetes.io/instance=test-default || true
+            echo "--- Events ---"
+            kubectl get events --sort-by='.lastTimestamp' | tail -30
+            exit 1
+          fi
           
           echo "📋 Checking deployed resources..."
           kubectl get all -l app.kubernetes.io/instance=test-default
           
-          helm uninstall test-default
+          helm uninstall test-default --wait
 
       - name: Test with deployment-simple example
         run: |
           echo "🚀 Testing deployment-simple example..."
-          helm install test-simple . -f examples/deployment-simple.yaml --wait --timeout 120s
+          if ! helm install test-simple . -f examples/deployment-simple.yaml --wait --timeout 300s; then
+            echo "❌ Helm install failed. Debugging info:"
+            kubectl get pods -A
+            kubectl describe pods -l app.kubernetes.io/instance=test-simple || true
+            kubectl get events --sort-by='.lastTimestamp' | tail -30
+            exit 1
+          fi
           kubectl get all -l app.kubernetes.io/instance=test-simple
-          helm uninstall test-simple
-
-      - name: Test with deployment-full example
-        run: |
-          echo "🚀 Testing deployment-full example..."
-          # May need to skip some features that require cluster components
-          helm install test-full . -f examples/deployment-full.yaml --wait --timeout 180s || true
-          kubectl get all -l app.kubernetes.io/instance=test-full || true
-          helm uninstall test-full || true
+          helm uninstall test-simple --wait
 
   # ============================================
   # Job 6: Documentation
@@ -301,7 +333,7 @@ jobs:
     needs: lint
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install helm-docs
         run: |

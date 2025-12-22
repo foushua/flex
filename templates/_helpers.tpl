@@ -1,7 +1,7 @@
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "generic.name" -}}
+{{- define "flex.name" -}}
 {{- default .Chart.Name .Values.global.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
@@ -10,7 +10,7 @@ Create a default fully qualified app name.
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
 If release name contains chart name it will be used as a full name.
 */}}
-{{- define "generic.fullname" -}}
+{{- define "flex.fullname" -}}
 {{- if .Values.global.fullnameOverride }}
 {{- .Values.global.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -26,14 +26,14 @@ If release name contains chart name it will be used as a full name.
 {{/*
 Create chart name and version as used by the chart label.
 */}}
-{{- define "generic.chart" -}}
+{{- define "flex.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Determine the namespace to use.
 */}}
-{{- define "generic.namespace" -}}
+{{- define "flex.namespace" -}}
 {{- if .Values.global.namespace }}
 {{- .Values.global.namespace }}
 {{- else }}
@@ -44,9 +44,9 @@ Determine the namespace to use.
 {{/*
 Create the name of the service account to use.
 */}}
-{{- define "generic.serviceAccountName" -}}
+{{- define "flex.serviceAccountName" -}}
 {{- if .Values.serviceAccount.create }}
-{{- default (include "generic.fullname" .) .Values.serviceAccount.name }}
+{{- default (include "flex.fullname" .) .Values.serviceAccount.name }}
 {{- else }}
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
@@ -54,9 +54,9 @@ Create the name of the service account to use.
 
 {{/*
 Build full image reference.
-Usage: {{ include "generic.image" (dict "image" .Values.containers.main.image "global" .Values.global "Chart" .Chart) }}
+Usage: {{ include "flex.image" (dict "image" .Values.containers.main.image "global" .Values.global "Chart" .Chart) }}
 */}}
-{{- define "generic.image" -}}
+{{- define "flex.image" -}}
 {{- $registry := .image.registry | default .global.imageRegistry | default "" -}}
 {{- $repository := .image.repository | default "" -}}
 {{- $tag := .image.tag | default .Chart.AppVersion | default "latest" -}}
@@ -79,7 +79,7 @@ Usage: {{ include "generic.image" (dict "image" .Values.containers.main.image "g
 {{/*
 Merge global and local image pull secrets.
 */}}
-{{- define "generic.imagePullSecrets" -}}
+{{- define "flex.imagePullSecrets" -}}
 {{- $secrets := list }}
 {{- if .Values.global.imagePullSecrets }}
 {{- range .Values.global.imagePullSecrets }}
@@ -107,10 +107,10 @@ imagePullSecrets:
 {{/*
 Generate container name from key or explicit name.
 */}}
-{{- define "generic.containerName" -}}
+{{- define "flex.containerName" -}}
 {{- $name := .name | default .key -}}
 {{- if eq $name "main" }}
-{{- include "generic.name" .context }}
+{{- include "flex.name" .context }}
 {{- else }}
 {{- $name }}
 {{- end }}
@@ -119,10 +119,10 @@ Generate container name from key or explicit name.
 {{/*
 StatefulSet service name.
 */}}
-{{- define "generic.statefulset.serviceName" -}}
+{{- define "flex.statefulset.serviceName" -}}
 {{- if .Values.workload.statefulset.serviceName }}
 {{- .Values.workload.statefulset.serviceName }}
 {{- else }}
-{{- include "generic.fullname" . }}-headless
+{{- include "flex.fullname" . }}-headless
 {{- end }}
 {{- end }}

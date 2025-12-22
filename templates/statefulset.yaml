@@ -2,17 +2,17 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: {{ include "generic.fullname" . }}
-  namespace: {{ include "generic.namespace" . }}
+  name: {{ include "flex.fullname" . }}
+  namespace: {{ include "flex.namespace" . }}
   labels:
-    {{- include "generic.labels" . | nindent 4 }}
-  {{- $annotations := include "generic.resourceAnnotations" (dict "context" . "annotations" dict) }}
+    {{- include "flex.labels" . | nindent 4 }}
+  {{- $annotations := include "flex.resourceAnnotations" (dict "context" . "annotations" dict) }}
   {{- if $annotations }}
   annotations:
     {{- $annotations | nindent 4 }}
   {{- end }}
 spec:
-  serviceName: {{ include "generic.statefulset.serviceName" . }}
+  serviceName: {{ include "flex.statefulset.serviceName" . }}
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.workload.replicaCount }}
   {{- end }}
@@ -27,12 +27,12 @@ spec:
   {{- end }}
   selector:
     matchLabels:
-      {{- include "generic.selectorLabels" . | nindent 6 }}
+      {{- include "flex.selectorLabels" . | nindent 6 }}
   template:
     metadata:
-      {{- include "generic.podMetadata" . | nindent 6 }}
+      {{- include "flex.podMetadata" . | nindent 6 }}
     spec:
-      {{- include "generic.podSpec" . | nindent 6 }}
+      {{- include "flex.podSpec" . | nindent 6 }}
   {{- if or .Values.workload.statefulset.volumeClaimTemplates .Values.persistence.enabled }}
   volumeClaimTemplates:
     {{- if .Values.persistence.enabled }}

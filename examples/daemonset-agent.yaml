@@ -153,10 +153,10 @@ tolerations:
 
 priorityClassName: system-node-critical
 
-serviceMonitor:
-  enabled: true
-  labels:
-    release: prometheus
-  endpoints:
-    - port: http
-      path: /api/v1/metrics/prometheus
+# serviceMonitor:
+#   enabled: true
+#   labels:
+#     release: prometheus
+#   endpoints:
+#     - port: http
+#       path: /api/v1/metrics/prometheus

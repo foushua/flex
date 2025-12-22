@@ -4,10 +4,10 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ include "generic.fullname" . }}
+  name: {{ include "flex.fullname" . }}
   labels:
-    {{- include "generic.labels" . | nindent 4 }}
-  {{- $annotations := include "generic.resourceAnnotations" (dict "context" . "annotations" dict) }}
+    {{- include "flex.labels" . | nindent 4 }}
+  {{- $annotations := include "flex.resourceAnnotations" (dict "context" . "annotations" dict) }}
   {{- if $annotations }}
   annotations:
     {{- $annotations | nindent 4 }}
@@ -22,10 +22,10 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: {{ include "generic.fullname" . }}
+  name: {{ include "flex.fullname" . }}
   labels:
-    {{- include "generic.labels" . | nindent 4 }}
-  {{- $annotations := include "generic.resourceAnnotations" (dict "context" . "annotations" dict) }}
+    {{- include "flex.labels" . | nindent 4 }}
+  {{- $annotations := include "flex.resourceAnnotations" (dict "context" . "annotations" dict) }}
   {{- if $annotations }}
   annotations:
     {{- $annotations | nindent 4 }}
@@ -36,22 +36,22 @@ roleRef:
   {{- if .Values.rbac.existingRole }}
   name: {{ .Values.rbac.existingRole }}
   {{- else }}
-  name: {{ include "generic.fullname" . }}
+  name: {{ include "flex.fullname" . }}
   {{- end }}
 subjects:
   - kind: ServiceAccount
-    name: {{ include "generic.serviceAccountName" . }}
-    namespace: {{ include "generic.namespace" . }}
+    name: {{ include "flex.serviceAccountName" . }}
+    namespace: {{ include "flex.namespace" . }}
 {{- else }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{ include "generic.fullname" . }}
-  namespace: {{ include "generic.namespace" . }}
+  name: {{ include "flex.fullname" . }}
+  namespace: {{ include "flex.namespace" . }}
   labels:
-    {{- include "generic.labels" . | nindent 4 }}
-  {{- $annotations := include "generic.resourceAnnotations" (dict "context" . "annotations" dict) }}
+    {{- include "flex.labels" . | nindent 4 }}
+  {{- $annotations := include "flex.resourceAnnotations" (dict "context" . "annotations" dict) }}
   {{- if $annotations }}
   annotations:
     {{- $annotations | nindent 4 }}
@@ -66,11 +66,11 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: {{ include "generic.fullname" . }}
-  namespace: {{ include "generic.namespace" . }}
+  name: {{ include "flex.fullname" . }}
+  namespace: {{ include "flex.namespace" . }}
   labels:
-    {{- include "generic.labels" . | nindent 4 }}
-  {{- $annotations := include "generic.resourceAnnotations" (dict "context" . "annotations" dict) }}
+    {{- include "flex.labels" . | nindent 4 }}
+  {{- $annotations := include "flex.resourceAnnotations" (dict "context" . "annotations" dict) }}
   {{- if $annotations }}
   annotations:
     {{- $annotations | nindent 4 }}
@@ -81,11 +81,11 @@ roleRef:
   {{- if .Values.rbac.existingRole }}
   name: {{ .Values.rbac.existingRole }}
   {{- else }}
-  name: {{ include "generic.fullname" . }}
+  name: {{ include "flex.fullname" . }}
   {{- end }}
 subjects:
   - kind: ServiceAccount
-    name: {{ include "generic.serviceAccountName" . }}
-    namespace: {{ include "generic.namespace" . }}
+    name: {{ include "flex.serviceAccountName" . }}
+    namespace: {{ include "flex.namespace" . }}
 {{- end }}
 {{- end }}

@@ -2,11 +2,11 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "generic.fullname" . }}
-  namespace: {{ include "generic.namespace" . }}
+  name: {{ include "flex.fullname" . }}
+  namespace: {{ include "flex.namespace" . }}
   labels:
-    {{- include "generic.resourceLabels" (dict "context" . "labels" .Values.ingress.labels) | nindent 4 }}
-  {{- $annotations := include "generic.resourceAnnotations" (dict "context" . "annotations" .Values.ingress.annotations) }}
+    {{- include "flex.resourceLabels" (dict "context" . "labels" .Values.ingress.labels) | nindent 4 }}
+  {{- $annotations := include "flex.resourceAnnotations" (dict "context" . "annotations" .Values.ingress.annotations) }}
   {{- if $annotations }}
   annotations:
     {{- $annotations | nindent 4 }}
@@ -40,7 +40,7 @@ spec:
                 port:
                   number: {{ .service.port }}
                 {{- else }}
-                name: {{ include "generic.fullname" $ }}
+                name: {{ include "flex.fullname" $ }}
                 port:
                   {{- if $.Values.service.ports }}
                   name: {{ (index $.Values.service.ports 0).name }}
@@ -58,11 +58,11 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "generic.fullname" $ }}-{{ $name }}
-  namespace: {{ include "generic.namespace" $ }}
+  name: {{ include "flex.fullname" $ }}-{{ $name }}
+  namespace: {{ include "flex.namespace" $ }}
   labels:
-    {{- include "generic.resourceLabels" (dict "context" $ "labels" $ing.labels) | nindent 4 }}
-  {{- $annotations := include "generic.resourceAnnotations" (dict "context" $ "annotations" $ing.annotations) }}
+    {{- include "flex.resourceLabels" (dict "context" $ "labels" $ing.labels) | nindent 4 }}
+  {{- $annotations := include "flex.resourceAnnotations" (dict "context" $ "annotations" $ing.annotations) }}
   {{- if $annotations }}
   annotations:
     {{- $annotations | nindent 4 }}
@@ -91,7 +91,7 @@ spec:
             pathType: {{ .pathType | default "Prefix" }}
             backend:
               service:
-                name: {{ .service.name | default (include "generic.fullname" $) }}
+                name: {{ .service.name | default (include "flex.fullname" $) }}
                 port:
                   number: {{ .service.port | default 80 }}
           {{- end }}
