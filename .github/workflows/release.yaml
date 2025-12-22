@@ -35,14 +35,14 @@ jobs:
 
       - name: Validate chart
         run: |
-          helm lint .
-          for f in examples/*.yaml; do
-            helm lint . -f "$f"
+          helm lint charts/generic
+          for f in charts/generic/examples/*.yaml; do
+            helm lint charts/generic -f "$f"
           done
 
       - name: Check version consistency
         run: |
-          CHART_VERSION=$(grep '^version:' Chart.yaml | awk '{print $2}')
+          CHART_VERSION=$(grep '^version:' charts/generic/Chart.yaml | awk '{print $2}')
           echo "Chart version: $CHART_VERSION"
           
           if [ -n "${{ github.event.inputs.version }}" ]; then
@@ -87,7 +87,7 @@ jobs:
       - name: Package Helm chart
         run: |
           mkdir -p .cr-release-packages
-          helm package . -d .cr-release-packages
+          helm package charts/generic -d .cr-release-packages
           echo "📦 Packaged charts:"
           ls -la .cr-release-packages/
 
@@ -129,7 +129,7 @@ jobs:
       - name: Run chart-releaser
         uses: helm/chart-releaser-action@v1.6.0
         with:
-          charts_dir: .
+          charts_dir: charts
           skip_packaging: false
           skip_existing: true
         env:
@@ -160,11 +160,11 @@ jobs:
 
       - name: Package and push to GHCR
         run: |
-          CHART_NAME=$(grep '^name:' Chart.yaml | awk '{print $2}')
-          CHART_VERSION=$(grep '^version:' Chart.yaml | awk '{print $2}')
+          CHART_NAME=$(grep '^name:' charts/generic/Chart.yaml | awk '{print $2}')
+          CHART_VERSION=$(grep '^version:' charts/generic/Chart.yaml | awk '{print $2}')
           
           echo "📦 Packaging $CHART_NAME version $CHART_VERSION..."
-          helm package .
+          helm package charts/generic
           
           echo "🚀 Pushing to ghcr.io/${{ github.repository_owner }}/$CHART_NAME:$CHART_VERSION"
           helm push "${CHART_NAME}-${CHART_VERSION}.tgz" oci://ghcr.io/${{ github.repository_owner }}/charts

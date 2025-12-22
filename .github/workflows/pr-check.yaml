@@ -30,8 +30,8 @@ jobs:
           # Get the base branch version
           git fetch origin ${{ github.base_ref }}
           
-          BASE_VERSION=$(git show origin/${{ github.base_ref }}:Chart.yaml | grep '^version:' | awk '{print $2}' || echo "0.0.0")
-          HEAD_VERSION=$(grep '^version:' Chart.yaml | awk '{print $2}')
+          BASE_VERSION=$(git show origin/${{ github.base_ref }}:charts/generic/Chart.yaml | grep '^version:' | awk '{print $2}' || echo "0.0.0")
+          HEAD_VERSION=$(grep '^version:' charts/generic/Chart.yaml | awk '{print $2}')
           
           echo "Base version: $BASE_VERSION"
           echo "Head version: $HEAD_VERSION"
@@ -44,11 +44,11 @@ jobs:
           fi
 
       - name: Lint chart
-        run: helm lint .
+        run: helm lint charts/generic
 
       - name: Template validation
         run: |
-          helm template test-pr . > /tmp/manifests.yaml
+          helm template test-pr charts/generic > /tmp/manifests.yaml
           echo "✅ Templates rendered successfully"
 
       - name: Diff against base branch
@@ -62,11 +62,11 @@ jobs:
           echo "📝 Template diff preview:"
           git stash
           git checkout origin/${{ github.base_ref }} -- . 2>/dev/null || true
-          helm template test-base . > /tmp/base-manifests.yaml 2>/dev/null || echo "" > /tmp/base-manifests.yaml
+          helm template test-base charts/generic > /tmp/base-manifests.yaml 2>/dev/null || echo "" > /tmp/base-manifests.yaml
           git checkout - -- . 2>/dev/null || true
           git stash pop 2>/dev/null || true
           
-          helm template test-pr . > /tmp/pr-manifests.yaml
+          helm template test-pr charts/generic > /tmp/pr-manifests.yaml
           
           if diff -u /tmp/base-manifests.yaml /tmp/pr-manifests.yaml > /tmp/manifests-diff.txt; then
             echo "No changes in rendered manifests"
@@ -96,13 +96,13 @@ jobs:
       - name: Generate summary
         id: summary
         run: |
-          CHART_NAME=$(grep '^name:' Chart.yaml | awk '{print $2}')
-          CHART_VERSION=$(grep '^version:' Chart.yaml | awk '{print $2}')
-          APP_VERSION=$(grep '^appVersion:' Chart.yaml | awk '{print $2}' | tr -d '"')
+          CHART_NAME=$(grep '^name:' charts/generic/Chart.yaml | awk '{print $2}')
+          CHART_VERSION=$(grep '^version:' charts/generic/Chart.yaml | awk '{print $2}')
+          APP_VERSION=$(grep '^appVersion:' charts/generic/Chart.yaml | awk '{print $2}' | tr -d '"')
           
           # Count resources
-          TEMPLATE_COUNT=$(ls -1 templates/*.yaml 2>/dev/null | wc -l)
-          EXAMPLE_COUNT=$(ls -1 examples/*.yaml 2>/dev/null | wc -l)
+          TEMPLATE_COUNT=$(ls -1 charts/generic/templates/*.yaml 2>/dev/null | wc -l)
+          EXAMPLE_COUNT=$(ls -1 charts/generic/examples/*.yaml 2>/dev/null | wc -l)
           
           cat << EOF > /tmp/summary.md
           ## 📋 Helm Chart Summary
