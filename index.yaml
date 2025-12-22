@@ -1,0 +1,37 @@
+apiVersion: v1
+entries:
+  flex:
+  - annotations:
+      artifacthub.io/category: integration-delivery
+      artifacthub.io/license: MIT
+      artifacthub.io/signKey: |
+        fingerprint: ""
+        url: ""
+    apiVersion: v2
+    appVersion: 1.0.0
+    created: "2025-12-22T02:13:29.780392813Z"
+    description: Flex - A flexible, universal Helm chart for deploying any Kubernetes
+      workload with ease
+    digest: c8e09a96dd29f53237aa906f72c01060678b5566d841943eda558f8a78b96221
+    home: https://github.com/foushua/flex
+    keywords:
+    - deployment
+    - statefulset
+    - daemonset
+    - cronjob
+    - job
+    - kubernetes
+    - universal
+    - flexible
+    - flex
+    maintainers:
+    - email: foushua@users.noreply.github.com
+      name: Foushua
+    name: flex
+    sources:
+    - https://github.com/foushua/flex
+    type: application
+    urls:
+    - https://github.com/foushua/flex/releases/download/v1.0.0/flex-1.0.0.tgz
+    version: 1.0.0
+generated: "2025-12-22T02:13:29.777269267Z"
