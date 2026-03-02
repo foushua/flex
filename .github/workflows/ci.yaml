@@ -135,7 +135,7 @@ jobs:
           done
 
       - name: Upload manifests artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         if: ${{ !env.ACT }}  # Skip when running with act locally
         with:
           name: generated-manifests
